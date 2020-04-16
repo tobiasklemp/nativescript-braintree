@@ -1,9 +1,14 @@
 import { Observable } from 'tns-core-modules/data/observable';
 
 export declare function setupBraintreeAppDeligate(urlScheme: any): void;
+export interface IPayPalAccountNonce { }
+
+export declare class BraintreePayPal {
+  startPayment(token: string, options: BrainTreeOptions): Promise<BTPayPalAccountNonce>
+}
 
 export declare class Braintree extends Observable {
-  constructor();
+  constructor(token: string);
   output: {
     'status': string;
     'msg': string;
@@ -11,9 +16,26 @@ export declare class Braintree extends Observable {
     'paymentMethodType': string;
     'deviceInfo': string;
   };
+  collectData(): Promise<string>;
+
+  startCreditCardPayment(options: BrainTreeOptions): Promise<BTCardNonce>;
+  startLocalPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce>;
   startPayment(token: any, options: BrainTreeOptions): void;
+  startPaypalCheckoutPayment(options: BrainTreeOptions): Promise<IPayPalAccountNonce>;
+  startPaypalVaultPayment(options: BrainTreeOptions): Promise<BTPayPalAccountNonce>
   private callIntent(intent);
   private handleResults(requestCode, resultCode, data);
+}
+
+export enum LocalPaymentType {
+  bancontact = 'bancontact',
+  eps = 'eps',
+  giropay = 'giropay',
+  ideal = 'ideal',
+  klarna_sofort = 'sofort',
+  mybank = 'mybank',
+  p24 = 'p24',
+  sepa = 'sepa'
 }
 
 export interface BrainTreeOptions {
@@ -24,6 +46,19 @@ export interface BrainTreeOptions {
   collectDeviceData?: boolean;
   requestThreeDSecureVerification?: boolean;
   applePayPaymentRequest?: PKPaymentRequest;
+  billingAgreementDescription?: string;
+
+  localPaymentType?: string;
+  shippingAddressRequired?: boolean;
+
+  address?: any;
+  info?: any;
+
+  cardNumber?: string;
+  expiringMonth?: string;
+  expiringYear?: string;
+  cvv?: string;
+
   /**
     * currencyCode is required for Google Pay
     */
@@ -34,4 +69,26 @@ export interface BrainTreeOptions {
 export interface ApplePayLineItem {
   label: string;
   amount: number;
+}
+
+export interface IPayPalAccountNonce {
+
+  phone: string;
+  billingAddress: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  shippingAddress: string;
+  description: string
+  nonce: string;
+}
+
+export interface IPaymentMethodNonce {
+
+  description: string
+  nonce: string;
+}
+
+export interface ICardNonce {
+
 }
