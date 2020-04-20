@@ -71,7 +71,7 @@ export class HelloWorldModel extends Observable {
         let opts: BrainTreeOptions = {
             amount: "0.01",
             collectDeviceData: false,
-            requestThreeDSecureVerification: true,
+            requestThreeDSecureVerification: false,
             enableGooglePay: true,
             // Apple Pay payment request
             currencyCode: "USD",
@@ -82,7 +82,7 @@ export class HelloWorldModel extends Observable {
             console.log("Got account:", account);
         }, err => {
             console.log(err);
-        });
+        }).catch(err => { console.log(err) });
 
     }
     paypal() {

@@ -1,5 +1,5 @@
 import * as app from 'tns-core-modules/application';
-import { BraintreeBase } from './braintree.common';
+import { BraintreeBase, BraintreeAddress } from './braintree.common';
 import { BrainTreeOptions, IPayPalAccountNonce, IPaymentMethodNonce, ICardNonce } from '.';
 
 export import PaymentMethodNonceCreatedListener = com.braintreepayments.api.interfaces.PaymentMethodNonceCreatedListener;
@@ -16,20 +16,54 @@ export import Card = com.braintreepayments.api.Card;
 
 export import CardBuilder = com.braintreepayments.api.models.CardBuilder;
 export import LocalPaymentRequest = com.braintreepayments.api.models.LocalPaymentRequest;
-const DropInRequest = com.braintreepayments.api.dropin.DropInRequest;
-const ThreeDSecureRequest = com.braintreepayments.api.models.ThreeDSecureRequest;
+export import DropInRequest = com.braintreepayments.api.dropin.DropInRequest;
+export import ThreeDSecureRequest = com.braintreepayments.api.models.ThreeDSecureRequest;
+export import ThreeDSecure = com.braintreepayments.api.ThreeDSecure;
+export import ThreeDSecureLookupListener = com.braintreepayments.api.interfaces.ThreeDSecureLookupListener;
+export import ThreeDSecureLookup = com.braintreepayments.api.models.ThreeDSecureLookup;
+export import ThreeDSecurePostalAddress = com.braintreepayments.api.models.ThreeDSecurePostalAddress;
 
-const GooglePaymentRequest = com.braintreepayments.api.models.GooglePaymentRequest;
-const TransactionInfo = com.google.android.gms.wallet.TransactionInfo;
-const WalletConstants = com.google.android.gms.wallet.WalletConstants;
+export import PostalAddress = com.braintreepayments.api.models.PostalAddress;
+
+export import GooglePaymentRequest = com.braintreepayments.api.models.GooglePaymentRequest;
+export import TransactionInfo = com.google.android.gms.wallet.TransactionInfo;
+export import WalletConstants = com.google.android.gms.wallet.WalletConstants;
 
 
-const PayPal = com.braintreepayments.api.PayPal;
+export import PayPal = com.braintreepayments.api.PayPal;
 export import LocalPayment = com.braintreepayments.api.LocalPayment;
 
 
 export import BTPaymentMethodNonce = com.braintreepayments.api.models.PaymentMethodNonce;
 export import BTPayPalAccountNonce = com.braintreepayments.api.models.PayPalAccountNonce;
+
+function getAddressObj(a: BraintreeAddress): PostalAddress{
+    let address = new PostalAddress();
+    address.phoneNumber(a.phone);
+    address.streetAddress(a.street);
+    address.extendedAddress(a.extendedAddress);
+    address.locality(a.place);
+    address.region(a.region);
+    address.postalCode(a.postalCode);
+    address.countryCodeAlpha2(a.countryCode);
+    
+    return address;
+}
+
+function getSecureAddressObj(a: BraintreeAddress): ThreeDSecurePostalAddress{
+    let address = new ThreeDSecurePostalAddress();
+    address.givenName(a.firstname)
+    address.surname(a.lastname);
+    address.phoneNumber(a.phone);
+    address.streetAddress(a.street);
+    address.extendedAddress(a.extendedAddress);
+    address.locality(a.place);
+    address.region(a.region);
+    address.postalCode(a.postalCode);
+    address.countryCodeAlpha2(a.countryCode);
+    
+    return address;
+}
 
 export function setupBraintreeAppDeligate(urlScheme: any) {
     // to avoid error
@@ -107,11 +141,12 @@ export interface BraintreeListenerResponse {
 @Interfaces([PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, BraintreeResponseListener])
 export class BraintreePayPal extends java.lang.Object implements PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, BraintreeResponseListener<string> {
 
-    constructor(private fragment: BraintreeFragment, private cb: (response: { nonce?: IPayPalAccountNonce, data?: string, cancelled?: number, error?: any }) => void, private paypalRequest?: PayPalRequest) {
+    constructor(private fragment: BraintreeFragment, private cb: (response: BraintreeListenerResponse) => void, private paypalRequest?: PayPalRequest) {
         super();
-        this.fragment.addListener(this);
+        
         return global.__native(this);
     }
+
     public onResponse(data: string): void {
         this.cb({ data: data });
     }
@@ -129,10 +164,12 @@ export class BraintreePayPal extends java.lang.Object implements PaymentMethodNo
     }
 
     startCheckout(): void {
+        this.fragment.addListener(this);
         PayPal.requestOneTimePayment(this.fragment, this.paypalRequest);
     }
 
     startVault(): void {
+        this.fragment.addListener(this);
         PayPal.requestBillingAgreement(this.fragment, this.paypalRequest);
     }
 
@@ -173,13 +210,19 @@ export class BraintreeLocal extends java.lang.Object implements PaymentMethodNon
 
 }
 
-@Interfaces([PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener])
-export class BraintreeCard extends java.lang.Object implements PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener {
+@Interfaces([PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, ThreeDSecureLookupListener])
+export class BraintreeCard extends java.lang.Object implements PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, ThreeDSecureLookupListener {
 
-    constructor(private fragment: BraintreeFragment, private cardNumber: string, private expirationDate: string, private callback: (response: BraintreeListenerResponse) => void) {
+    private perfomedVerification: boolean;
+
+    constructor(private fragment: BraintreeFragment, private options: BrainTreeOptions, private callback: (response: BraintreeListenerResponse) => void) {
         super();
         this.fragment.addListener(this);
         return global.__native(this);
+    }
+
+    public onLookupComplete(request: ThreeDSecureRequest, lookup: com.braintreepayments.api.models.ThreeDSecureLookup): void {
+        ThreeDSecure.continuePerformVerification(this.fragment, request, lookup);
     }
 
     public onError(err: java.lang.Exception): void {
@@ -192,14 +235,35 @@ export class BraintreeCard extends java.lang.Object implements PaymentMethodNonc
 
     public startPayment(): void {
         let cardBuilder = new CardBuilder();
-        cardBuilder.cardNumber(this.cardNumber);
-        cardBuilder.expirationDate(this.expirationDate);
+        cardBuilder.cardNumber(this.options.cardNumber);
+        cardBuilder.cvv(this.options.cvv);
+        cardBuilder.expirationDate(this.options.expiringMonth + "/" + this.options.expiringYear);
 
         Card.tokenize(this.fragment, cardBuilder);
     }
 
     public onPaymentMethodNonceCreated(nonce: BTPaymentMethodNonce): void {
-        this.callback({ nonce: new PaymentMethodNonce(nonce) })
+        if(this.perfomedVerification){
+            this.callback({ nonce: new PaymentMethodNonce(nonce) })
+        }
+        else{
+            this.perfomedVerification = true;
+            let threeDRequest = new ThreeDSecureRequest();
+            threeDRequest.amount(this.options.amount);
+            threeDRequest.nonce(nonce.getNonce());
+            threeDRequest.versionRequested(ThreeDSecureRequest.VERSION_2);
+
+            if(this.options.info){
+                threeDRequest.email(this.options.info.email);
+            }
+            
+            if(this.options.address){
+                threeDRequest.billingAddress(getSecureAddressObj(this.options.address));
+            }
+
+            ThreeDSecure.performVerification(this.fragment, threeDRequest);
+
+        }
     }
 
 }
@@ -219,7 +283,7 @@ export class Braintree extends BraintreeBase {
             let activity = app.android.foregroundActivity || app.android.startActivity;
             let fragment = BraintreeFragment.newInstance(activity, this.token);
 
-
+            console.log("Angekommen")
             if (!options.amount) {
                 reject("Amount is required");
             }
@@ -231,7 +295,9 @@ export class Braintree extends BraintreeBase {
 
             let request = new PayPalRequest(options.amount);
             request.currencyCode(options.currencyCode);
+            
 
+            
 
             this.paypal = new BraintreePayPal(fragment, (response: { nonce?: IPayPalAccountNonce, cancelled?: number, error?: any }) => {
                 if (response.error) {
@@ -244,6 +310,7 @@ export class Braintree extends BraintreeBase {
                     resolve(response.nonce)
                 }
             }, request);
+            console.log("Angekommen2")
             this.paypal.startCheckout()
         })
 
@@ -283,7 +350,7 @@ export class Braintree extends BraintreeBase {
             }
 
             if (options.address) {
-                request.address(options.address);
+                request.address(getAddressObj(options.address));
             }
 
             if (options.info) {
@@ -323,7 +390,7 @@ export class Braintree extends BraintreeBase {
                 reject("billingAgreementDescription Code is required");
             }
 
-            let request = new PayPalRequest(options.amount);
+            let request = new PayPalRequest();
             request.currencyCode(options.currencyCode);
             request.billingAgreementDescription(options.billingAgreementDescription);
 
@@ -355,22 +422,22 @@ export class Braintree extends BraintreeBase {
                 reject("Expiring Date is required");
             }
 
-            if (!this.card) {
-                let activity = app.android.foregroundActivity || app.android.startActivity;
-                let fragment = BraintreeFragment.newInstance(activity, this.token);
+            
+            let activity = app.android.foregroundActivity || app.android.startActivity;
+            let fragment = BraintreeFragment.newInstance(activity, this.token);
 
-                this.card = new BraintreeCard(fragment, options.cardNumber, options.expiringMonth + "/" + options.expiringYear, (response) => {
-                    if (response.error) {
-                        reject(response.error);
-                    }
-                    else if (response.cancelled) {
-                        reject(response.cancelled);
-                    }
-                    else {
-                        resolve(response.nonce)
-                    }
-                })
-            }
+            this.card = new BraintreeCard(fragment, options, (response) => {
+                if (response.error) {
+                    reject(response.error);
+                }
+                else if (response.cancelled) {
+                    reject(response.cancelled);
+                }
+                else {
+                    resolve(response.nonce)
+                }
+            })
+            
 
             this.card.startPayment();
         })

@@ -1,4 +1,5 @@
 import { Observable } from 'tns-core-modules/data/observable';
+import { BraintreeAddress } from './braintree.common';
 
 export declare function setupBraintreeAppDeligate(urlScheme: any): void;
 export interface IPayPalAccountNonce { }
@@ -51,8 +52,8 @@ export interface BrainTreeOptions {
   localPaymentType?: string;
   shippingAddressRequired?: boolean;
 
-  address?: any;
-  info?: any;
+  address?: BraintreeAddress;
+  info?: {email?: string, firstName?: string, lastName?: string, phone?: string};
 
   cardNumber?: string;
   expiringMonth?: string;
