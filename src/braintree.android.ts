@@ -37,31 +37,45 @@ export import LocalPayment = com.braintreepayments.api.LocalPayment;
 export import BTPaymentMethodNonce = com.braintreepayments.api.models.PaymentMethodNonce;
 export import BTPayPalAccountNonce = com.braintreepayments.api.models.PayPalAccountNonce;
 
-function getAddressObj(a: BraintreeAddress): PostalAddress{
+function getAddressObj(a: BraintreeAddress): PostalAddress {
     let address = new PostalAddress();
     address.phoneNumber(a.phone);
-    address.streetAddress(a.street);
+    address.streetAddress(a.streetAddress);
     address.extendedAddress(a.extendedAddress);
-    address.locality(a.place);
+    address.locality(a.locality);
     address.region(a.region);
     address.postalCode(a.postalCode);
     address.countryCodeAlpha2(a.countryCode);
-    
+
     return address;
 }
 
-function getSecureAddressObj(a: BraintreeAddress): ThreeDSecurePostalAddress{
+function getSecureAddressObj(a: BraintreeAddress): ThreeDSecurePostalAddress {
     let address = new ThreeDSecurePostalAddress();
     address.givenName(a.firstname)
     address.surname(a.lastname);
     address.phoneNumber(a.phone);
-    address.streetAddress(a.street);
+    address.streetAddress(a.streetAddress);
     address.extendedAddress(a.extendedAddress);
-    address.locality(a.place);
+    address.locality(a.locality);
     address.region(a.region);
     address.postalCode(a.postalCode);
     address.countryCodeAlpha2(a.countryCode);
-    
+
+    return address;
+}
+
+function convertAddress(a: PostalAddress): BraintreeAddress {
+    let address = new BraintreeAddress();
+    address.countryCode = a.getCountryCodeAlpha2();
+    address.phone = a.getPhoneNumber();
+    address.streetAddress = a.getStreetAddress();
+    address.region = a.getRegion();
+    address.extendedAddress = a.getExtendedAddress();
+    address.locality = a.getLocality();
+    address.postalCode = a.getPostalCode();
+    address.receipientName = a.getRecipientName();
+
     return address;
 }
 
@@ -71,44 +85,35 @@ export function setupBraintreeAppDeligate(urlScheme: any) {
 
 export class PayPalAccountNonce implements IPayPalAccountNonce {
 
-    public get billingAddress(): any {
-        return this._native.getBillingAddress();
-    }
-
-    public get description(): any {
-        return this._native.getDescription();
-    }
-
-    public get lastName(): string {
-        return this._native.getLastName();
-    }
-
-    public get shippingAddress(): any {
-        return this._native.getShippingAddress();
-    }
-
-    public get nonce(): string {
-        return this._native.getNonce();
-    }
-
-    public get phone(): string {
-        return this._native.getPhone();
-    }
-
-    public get email(): string {
-        return this._native.getEmail();
-    }
-
-    public get firstName(): string {
-        return this._native.getFirstName();
-    }
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    billingAddress: any;
+    shippingAddress: any;
+    description: string;
+    nonce: string;
 
     private _native: BTPayPalAccountNonce;
 
 
     constructor(native: BTPayPalAccountNonce) {
         this._native = native;
+        this.firstName = native.getFirstName();
+        this.lastName = native.getLastName();
+        this.email = native.getEmail();
+        this.phone = native.getPhone();
+        this.description = native.getDescription();
+        this.nonce = native.getNonce();
+
+        if (native.getBillingAddress()) {
+            this.billingAddress = convertAddress(native.getBillingAddress());
+        }
+        if (native.getShippingAddress()) {
+            this.billingAddress = convertAddress(native.getShippingAddress());
+        }
     }
+
 
 }
 
@@ -143,7 +148,7 @@ export class BraintreePayPal extends java.lang.Object implements PaymentMethodNo
 
     constructor(private fragment: BraintreeFragment, private cb: (response: BraintreeListenerResponse) => void, private paypalRequest?: PayPalRequest) {
         super();
-        
+
         return global.__native(this);
     }
 
@@ -243,22 +248,22 @@ export class BraintreeCard extends java.lang.Object implements PaymentMethodNonc
     }
 
     public onPaymentMethodNonceCreated(nonce: BTPaymentMethodNonce): void {
-        if(this.perfomedVerification){
+        if (this.perfomedVerification) {
             this.callback({ nonce: new PaymentMethodNonce(nonce) })
         }
-        else{
+        else {
             this.perfomedVerification = true;
             let threeDRequest = new ThreeDSecureRequest();
             threeDRequest.amount(this.options.amount);
             threeDRequest.nonce(nonce.getNonce());
             threeDRequest.versionRequested(ThreeDSecureRequest.VERSION_2);
 
-            if(this.options.info){
+            if (this.options.info) {
                 threeDRequest.email(this.options.info.email);
             }
-            
-            if(this.options.address){
-                threeDRequest.billingAddress(getSecureAddressObj(this.options.address));
+
+            if (this.options.billingAddress) {
+                threeDRequest.billingAddress(getSecureAddressObj(this.options.billingAddress));
             }
 
             ThreeDSecure.performVerification(this.fragment, threeDRequest);
@@ -285,19 +290,19 @@ export class Braintree extends BraintreeBase {
 
             console.log("Angekommen")
             if (!options.amount) {
-                reject("Amount is required");
+                reject({ error: "amount is required" });
             }
 
             if (!options.currencyCode) {
-                reject("Currency Code is required");
+                reject({ error: "currencyCode is required" });
             }
 
 
             let request = new PayPalRequest(options.amount);
             request.currencyCode(options.currencyCode);
-            
 
-            
+
+
 
             this.paypal = new BraintreePayPal(fragment, (response: { nonce?: IPayPalAccountNonce, cancelled?: number, error?: any }) => {
                 if (response.error) {
@@ -310,7 +315,6 @@ export class Braintree extends BraintreeBase {
                     resolve(response.nonce)
                 }
             }, request);
-            console.log("Angekommen2")
             this.paypal.startCheckout()
         })
 
@@ -328,29 +332,29 @@ export class Braintree extends BraintreeBase {
                 request.currencyCode(options.currencyCode);
             }
             else {
-                reject("CurrencyCode is required");
+                reject({ error: "currencyCode is required" });
             }
 
             if (options.localPaymentType) {
                 request.paymentType(options.localPaymentType);
             }
             else {
-                reject("LocalPaymentType is required");
+                reject({ error: "localPaymentType is required" });
             }
 
             if (options.localPaymentType) {
                 request.amount(options.amount);
             }
             else {
-                reject("Amount is required");
+                reject({ error: "amount is required" });
             }
 
             if (options.shippingAddressRequired != undefined) {
                 request.shippingAddressRequired(options.shippingAddressRequired);
             }
 
-            if (options.address) {
-                request.address(getAddressObj(options.address));
+            if (options.billingAddress) {
+                request.address(getAddressObj(options.billingAddress));
             }
 
             if (options.info) {
@@ -383,11 +387,11 @@ export class Braintree extends BraintreeBase {
             let fragment = BraintreeFragment.newInstance(activity, this.token);
 
             if (!options.currencyCode) {
-                reject("Currency Code is required");
+                reject({ error: "currencyCode is required" });
             }
 
             if (!options.billingAgreementDescription) {
-                reject("billingAgreementDescription Code is required");
+                reject({ error: "billingAgreementDescription Code is required" });
             }
 
             let request = new PayPalRequest();
@@ -415,14 +419,14 @@ export class Braintree extends BraintreeBase {
 
 
             if (!options.cardNumber) {
-                reject("Card number is required");
+                reject({ error: "cardNumber is required" });
             }
 
             if (!options.expiringMonth && options.expiringYear) {
-                reject("Expiring Date is required");
+                reject({ error: "Expiring Date is required" });
             }
 
-            
+
             let activity = app.android.foregroundActivity || app.android.startActivity;
             let fragment = BraintreeFragment.newInstance(activity, this.token);
 
@@ -437,7 +441,7 @@ export class Braintree extends BraintreeBase {
                     resolve(response.nonce)
                 }
             })
-            
+
 
             this.card.startPayment();
         })

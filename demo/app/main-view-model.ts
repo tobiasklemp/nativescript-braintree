@@ -97,7 +97,7 @@ export class HelloWorldModel extends Observable {
         };
 
         this.braintree.startPaypalCheckoutPayment(opts).then(account => {
-            console.log("Got account:", account.nonce);
+            console.log("Got account:", account);
         }, err => {
             console.log(err);
         });
@@ -105,12 +105,12 @@ export class HelloWorldModel extends Observable {
 
     localPayment() {
         let opts: BrainTreeOptions = {
-            amount: "0.01",
+            amount: "0.03",
             collectDeviceData: false,
             requestThreeDSecureVerification: true,
             enableGooglePay: true,
             // Apple Pay payment request
-            currencyCode: "USD",
+            currencyCode: "EUR",
             localPaymentType: 'giropay'
         };
 

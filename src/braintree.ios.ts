@@ -1,10 +1,92 @@
-import { BrainTreeOptions } from '.';
-import { BraintreeBase } from './braintree.common';
+import { BrainTreeOptions, IPayPalAccountNonce } from '.';
+import { BraintreeBase, BraintreeAddress } from './braintree.common';
 const setupAppDeligate = require('./getappdelegate').setupAppDeligate;
-declare const BTDropInRequest, BTDropInController, UIApplication, PPDataCollector;
+declare const BTDropInRequest, BTDropInController, UIApplication, PPDataCollector, BTPostalAddress;
+
+class PayPalAccountNonce implements IPayPalAccountNonce {
+
+    public billingAddress: BraintreeAddress;
+
+    public description: string;
+
+    public lastName: string
+
+    public shippingAddress: BraintreeAddress;
+
+    public nonce: string;
+
+    public phone: string;
+
+    public email: string;
+
+    public firstName: string;
+
+    private _native: BTPayPalAccountNonce;
+
+    constructor(native: BTPayPalAccountNonce) {
+        this._native = native;
+        if (native.billingAddress) {
+            this.billingAddress = convertAddressObj(native.billingAddress);
+            this.billingAddress.firstname = native.firstName;
+            this.billingAddress.lastname = native.lastName;
+        }
+
+        if (native.shippingAddress) {
+            this.shippingAddress = convertAddressObj(native.shippingAddress);
+            this.shippingAddress.firstname = native.shippingAddress.recipientName
+        }
+
+        this.firstName = native.firstName;
+        this.lastName = native.lastName;
+        this.nonce = native.nonce;
+        this.phone = native.phone;
+        this.email = native.email;
+
+    }
+
+}
 
 export function setupBraintreeAppDeligate(urlScheme) {
     setupAppDeligate(urlScheme);
+}
+
+function getAddressObj(a: BraintreeAddress): BTPostalAddress {
+    let address: BTPostalAddress = BTPostalAddress().alloc().init();
+    address.countryCodeAlpha2 = a.countryCode;
+    address.extendedAddress = a.extendedAddress;
+    address.streetAddress = a.streetAddress;
+    address.postalCode = a.postalCode;
+    address.region = a.region;
+    address.locality = a.locality;
+    address.recipientName = a.receipientName;
+
+    return address;
+}
+
+function getSecureAddressObj(a: BraintreeAddress): BTThreeDSecurePostalAddress {
+    let address: BTThreeDSecurePostalAddress = BTThreeDSecurePostalAddress.alloc().init();
+    address.countryCodeAlpha2 = a.countryCode;
+    address.extendedAddress = a.extendedAddress;
+    address.streetAddress = a.streetAddress;
+    address.postalCode = a.postalCode;
+    address.region = a.region;
+    address.locality = a.locality;
+    address.givenName = a.firstname;
+    address.surname = a.lastname;
+    address.phoneNumber = a.phone;
+
+    return address;
+}
+
+function convertAddressObj(a: BTPostalAddress): BraintreeAddress {
+    let address: BraintreeAddress = new BraintreeAddress();
+    address.countryCode = a.countryCodeAlpha2;
+    address.extendedAddress = a.extendedAddress;
+    address.streetAddress = a.streetAddress;
+    address.postalCode = a.postalCode;
+    address.region = a.region;
+    address.locality = a.locality;
+    return address;
 }
 
 export class Braintree extends BraintreeBase {
@@ -36,7 +118,7 @@ export class Braintree extends BraintreeBase {
         return PPDataCollector.collectPayPalDeviceData();
     }
 
-    public startPaypalCheckoutPayment(options: BrainTreeOptions): Promise<BTPayPalAccountNonce> {
+    public startPaypalCheckoutPayment(options: BrainTreeOptions): Promise<IPayPalAccountNonce> {
         return new Promise((resolve, reject) => {
 
             let paypalDriver: BTPayPalDriver = new BTPayPalDriver({ APIClient: this.client });
@@ -45,19 +127,19 @@ export class Braintree extends BraintreeBase {
 
             paypalDriver.requestOneTimePaymentCompletion(request, (tokenizedPayPalAccount: BTPayPalAccountNonce, error) => {
                 if (tokenizedPayPalAccount) {
-                    resolve(tokenizedPayPalAccount);
+                    resolve(new PayPalAccountNonce(tokenizedPayPalAccount));
                 }
                 else if (error) {
                     reject(error);
                 }
                 else {
-                    reject("cancelled");
+                    reject({ cancelled: true });
                 }
             })
         })
     }
 
-    public startPaypalVaultPayment(options: BrainTreeOptions): Promise<BTPayPalAccountNonce> {
+    public startPaypalVaultPayment(options: BrainTreeOptions): Promise<IPayPalAccountNonce> {
         return new Promise((resolve, reject) => {
 
             let paypalDriver: BTPayPalDriver = new BTPayPalDriver({ APIClient: this.client });
@@ -66,13 +148,13 @@ export class Braintree extends BraintreeBase {
 
             paypalDriver.requestBillingAgreementCompletion(request, (tokenizedPayPalAccount: BTPayPalAccountNonce, error) => {
                 if (tokenizedPayPalAccount) {
-                    resolve(tokenizedPayPalAccount);
+                    resolve(new PayPalAccountNonce(tokenizedPayPalAccount));
                 }
                 else if (error) {
                     reject(error);
                 }
                 else {
-                    reject("cancelled");
+                    reject({ cancelled: true });
                 }
             })
         })
@@ -82,40 +164,66 @@ export class Braintree extends BraintreeBase {
         return new Promise((resolve, reject) => {
 
             let driver = BTPaymentFlowDriver.alloc().initWithAPIClient(this.client);
-            driver.viewControllerPresentingDelegate = new ViewControllerPresentingDelegate()
+            driver.viewControllerPresentingDelegate = new ViewControllerPresentingDelegate();
             let delegate = new LocalPaymentRequestDelegate();
 
             let request = BTLocalPaymentRequest.alloc().init();
 
-            request.paymentType = options.localPaymentType;
-            request.currencyCode = options.currencyCode;
-            request.amount = options.amount;
-            request.givenName = "Jon"
-            request.surname = "Doe"
-            request.phone = "639847934"
-            request.address = BTPostalAddress.alloc().init();
-            request.address.countryCodeAlpha2 = "DE"
-            request.address.postalCode = "2585 GJ"
-            request.address.streetAddress = "836486 of 22321 Park Lake"
-            request.address.locality = "Den Haag"
-            request.email = "lingo-buyer@paypal.com"
-            request.shippingAddressRequired = false
+            if (options.currencyCode) {
+                request.currencyCode = options.currencyCode;
+            }
+            else {
+                reject({ error: "currencyCode is required" });
+            }
+
+            if (options.localPaymentType) {
+                request.paymentType = options.localPaymentType;
+            }
+            else {
+                reject({ error: "localPaymentType is required" });
+            }
+
+            if (options.amount) {
+                request.amount = options.amount;
+            }
+            else {
+                reject({ error: "amount is required" });
+            }
+
+            if (options.billingAddress && options.billingAddress.firstname) {
+                request.givenName = options.billingAddress.firstname;
+            }
+
+            if (options.billingAddress && options.billingAddress.lastname) {
+                request.surname = options.billingAddress.lastname;
+            }
+
+            if (options.info && options.info.phone) {
+                request.phone = options.info.phone;
+            }
+
+            if (options.billingAddress) {
+                request.address = getAddressObj(options.billingAddress);
+            }
+
+            if (options.info && options.info.email) {
+                request.email = options.info.email;
+            }
+
+
+            request.shippingAddressRequired = options.shippingAddressRequired == true ? true : false;
+
             request.localPaymentFlowDelegate = delegate;
 
-            console.log(request.paymentType)
-
             driver.startPaymentFlowCompletion(request, (result: BTPaymentFlowResult, error) => {
-                console.log("Returned")
                 if (result) {
                     resolve(result);
-                    console.log(result)
                 }
                 else if (error) {
                     reject(error);
-                    console.log(error)
                 }
                 else {
-                    reject("cancelled");
+                    reject({ cancelled: true });
                 }
             })
 
@@ -124,13 +232,63 @@ export class Braintree extends BraintreeBase {
 
     public startCreditCardPayment(options: BrainTreeOptions): Promise<BTCardNonce> {
         return new Promise((resolve, reject) => {
+
+            let driver = BTPaymentFlowDriver.alloc().initWithAPIClient(this.client);
+            driver.viewControllerPresentingDelegate = new ViewControllerPresentingDelegate();
+
+            let delegate = new ThreeDSecureRequestDelegate();
             let cardClient: BTCardClient = BTCardClient.alloc().initWithAPIClient(this.client);
 
             let card: BTCard = BTCard.alloc().initWithNumberExpirationMonthExpirationYearCvv(options.cardNumber, options.expiringMonth, options.expiringYear, options.cvv);
+            cardClient.tokenizeCardCompletion(card, (tokenizedCard, error) => {
+                if (tokenizedCard) {
+                    let request = BTThreeDSecureRequest.alloc().init();
+                    request.threeDSecureRequestDelegate = delegate;
 
-            cardClient.tokenizeCardCompletion(card, (result: BTCardNonce, error) => {
-                if (result) {
-                    resolve(result);
+                    if (options.amount) {
+                        // For some reason this request requires a number for amount altough type is string - this fixes a crash
+                        request.amount = <any>Number.parseFloat(options.amount);
+                    }
+                    else {
+                        reject({ error: "amount is required" });
+                    }
+
+
+                    request.nonce = tokenizedCard.nonce
+
+                    if (options.info && options.info.email) {
+                        request.email = options.info.email;
+                    }
+
+                    request.versionRequested = BTThreeDSecureVersion.Version2;
+                    if (options.billingAddress) {
+                        request.billingAddress = getSecureAddressObj(options.billingAddress)
+                    }
+
+                    if (options.shippingAddress) {
+                        let info = BTThreeDSecureAdditionalInformation.alloc().init();
+                        info.shippingAddress = getSecureAddressObj(options.shippingAddress);
+                    }
+
+
+                    driver.startPaymentFlowCompletion(request, (secureResult, error) => {
+                        console.log("started Paymentflow")
+                        if (error) {
+                            reject(error);
+                        }
+
+                        if (tokenizedCard.threeDSecureInfo.liabilityShiftPossible) {
+                            if (tokenizedCard.threeDSecureInfo.liabilityShifted) {
+                                console.log("3D Secure authentication success")
+                            } else {
+                                console.log("3D Secure authentication failed");
+                            }
+                        } else {
+                            console.log("3D Secure authentication was not possible")
+                        }
+                        resolve(tokenizedCard);
+                    })
+
                 }
                 else if (error) {
                     reject(error);
@@ -288,7 +446,6 @@ export class LocalPaymentRequestDelegate extends NSObject implements BTLocalPaym
     public static ObjCProtocols = [BTLocalPaymentRequestDelegate];
     constructor() {
         super();
-        console.log("CREATED DELEGATE")
     }
 
 
@@ -296,6 +453,20 @@ export class LocalPaymentRequestDelegate extends NSObject implements BTLocalPaym
         start()
     }
 
+}
+
+export class ThreeDSecureRequestDelegate extends NSObject implements BTThreeDSecureRequestDelegate {
+    public static ObjCProtocols = [BTThreeDSecureRequestDelegate];
+
+    constructor() {
+        super();
+        console.log("CREATED FLOW")
+    }
+
+    onLookupCompleteResultNext(request: BTThreeDSecureRequest, result: BTThreeDSecureLookup, next: () => void): void {
+        console.log("Hier isser leider nicht");
+        next();
+    }
 }
 
 export class ViewControllerPresentingDelegate extends NSObject implements BTViewControllerPresentingDelegate {
@@ -306,11 +477,9 @@ export class ViewControllerPresentingDelegate extends NSObject implements BTView
     }
     paymentDriverRequestsDismissalOfViewController(driver: any, viewController: UIViewController): void {
         viewController.dismissViewControllerAnimatedCompletion(true, null)
-
-        // let app = UIApplication.sharedApplication;
-        // app.keyWindow.rootViewController.dismissViewControllerAnimatedCompletion(viewController, true, null)
     }
     paymentDriverRequestsPresentationOfViewController(driver: any, viewController: UIViewController): void {
+        console.log("AASDSADASDASDASDADADASD")
         let app = UIApplication.sharedApplication;
         app.keyWindow.rootViewController.presentViewControllerAnimatedCompletion(viewController, true, null);
     }

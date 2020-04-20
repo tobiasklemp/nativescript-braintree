@@ -52,8 +52,9 @@ export interface BrainTreeOptions {
   localPaymentType?: string;
   shippingAddressRequired?: boolean;
 
-  address?: BraintreeAddress;
-  info?: {email?: string, firstName?: string, lastName?: string, phone?: string};
+  billingAddress?: BraintreeAddress;
+  shippingAddress?: BraintreeAddress;
+  info?: { email?: string, firstName?: string, lastName?: string, phone?: string };
 
   cardNumber?: string;
   expiringMonth?: string;
@@ -75,11 +76,11 @@ export interface ApplePayLineItem {
 export interface IPayPalAccountNonce {
 
   phone: string;
-  billingAddress: string;
+  billingAddress: BraintreeAddress;
   email: string;
   firstName: string;
   lastName: string;
-  shippingAddress: string;
+  shippingAddress: BraintreeAddress;
   description: string
   nonce: string;
 }

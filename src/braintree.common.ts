@@ -20,15 +20,16 @@ export class BraintreeBase extends Observable {
 
 }
 
-export class BraintreeAddress{
+export class BraintreeAddress {
     firstname: string;
     lastname: string;
     phone: string;
-    street: string;
+    streetAddress: string;
     extendedAddress: string;
-    place: string;
+    locality: string;
     region: string;
     postalCode: string;
     countryCode: string;
+    receipientName: string;
 }
 
