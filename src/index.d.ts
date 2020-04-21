@@ -24,6 +24,7 @@ export declare class Braintree extends Observable {
   startPayment(token: any, options: BrainTreeOptions): void;
   startPaypalCheckoutPayment(options: BrainTreeOptions): Promise<IPayPalAccountNonce>;
   startPaypalVaultPayment(options: BrainTreeOptions): Promise<BTPayPalAccountNonce>
+  startApplePayPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce>
   private callIntent(intent);
   private handleResults(requestCode, resultCode, data);
 }
@@ -66,6 +67,7 @@ export interface BrainTreeOptions {
     */
   enableGooglePay?: boolean;
   currencyCode?: string;
+  countryCode?: string;
 }
 
 export interface ApplePayLineItem {

@@ -94,7 +94,7 @@ export class PayPalAccountNonce implements IPayPalAccountNonce {
     description: string;
     nonce: string;
 
-    private _native: BTPayPalAccountNonce;
+    _native: BTPayPalAccountNonce;
 
 
     constructor(native: BTPayPalAccountNonce) {
@@ -119,19 +119,15 @@ export class PayPalAccountNonce implements IPayPalAccountNonce {
 
 export class PaymentMethodNonce implements IPaymentMethodNonce {
 
-    public get description(): any {
-        return this._native.getDescription();
-    }
+    description: string;
+    nonce: string;
 
-    public get nonce(): string {
-        return this._native.getNonce();
-    }
-
-    private _native: BTPaymentMethodNonce;
-
+    public _native: BTPaymentMethodNonce;
 
     constructor(native: BTPaymentMethodNonce) {
         this._native = native;
+        this.description = native.getDescription();
+        this.nonce = native.getNonce();
     }
 
 }

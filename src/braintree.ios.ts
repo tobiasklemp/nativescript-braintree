@@ -1,4 +1,4 @@
-import { BrainTreeOptions, IPayPalAccountNonce } from '.';
+import { BrainTreeOptions, IPayPalAccountNonce, IPaymentMethodNonce } from '.';
 import { BraintreeBase, BraintreeAddress } from './braintree.common';
 const setupAppDeligate = require('./getappdelegate').setupAppDeligate;
 declare const BTDropInRequest, BTDropInController, UIApplication, PPDataCollector, BTPostalAddress;
@@ -21,7 +21,7 @@ class PayPalAccountNonce implements IPayPalAccountNonce {
 
     public firstName: string;
 
-    private _native: BTPayPalAccountNonce;
+    public _native: BTPayPalAccountNonce;
 
     constructor(native: BTPayPalAccountNonce) {
         this._native = native;
@@ -44,6 +44,19 @@ class PayPalAccountNonce implements IPayPalAccountNonce {
 
     }
 
+}
+
+class PaymentMethodNonce implements IPaymentMethodNonce {
+
+    description: string;
+    nonce: string;
+    _native: any;
+
+    constructor(native: any) {
+        this._native = native;
+        this.description = native.description
+        this.nonce = native.nonce
+    }
 }
 
 export function setupBraintreeAppDeligate(urlScheme) {
@@ -160,7 +173,7 @@ export class Braintree extends BraintreeBase {
         })
     }
 
-    public startLocalPayment(options: BrainTreeOptions): Promise<BTPaymentFlowResult> {
+    public startLocalPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce> {
         return new Promise((resolve, reject) => {
 
             let driver = BTPaymentFlowDriver.alloc().initWithAPIClient(this.client);
@@ -217,7 +230,7 @@ export class Braintree extends BraintreeBase {
 
             driver.startPaymentFlowCompletion(request, (result: BTPaymentFlowResult, error) => {
                 if (result) {
-                    resolve(result);
+                    resolve(new PaymentMethodNonce(result));
                 }
                 else if (error) {
                     reject(error);
@@ -230,7 +243,7 @@ export class Braintree extends BraintreeBase {
         })
     }
 
-    public startCreditCardPayment(options: BrainTreeOptions): Promise<BTCardNonce> {
+    public startCreditCardPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce> {
         return new Promise((resolve, reject) => {
 
             let driver = BTPaymentFlowDriver.alloc().initWithAPIClient(this.client);
@@ -272,7 +285,6 @@ export class Braintree extends BraintreeBase {
 
 
                     driver.startPaymentFlowCompletion(request, (secureResult, error) => {
-                        console.log("started Paymentflow")
                         if (error) {
                             reject(error);
                         }
@@ -286,7 +298,7 @@ export class Braintree extends BraintreeBase {
                         } else {
                             console.log("3D Secure authentication was not possible")
                         }
-                        resolve(tokenizedCard);
+                        resolve(new PaymentMethodNonce(tokenizedCard));
                     })
 
                 }
@@ -297,6 +309,67 @@ export class Braintree extends BraintreeBase {
                     reject();
                 }
             })
+
+
+        })
+    }
+
+    public startApplePayPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce> {
+        return new Promise((resolve, reject) => {
+            let request = PKPaymentRequest.alloc().init();
+
+            request.paymentSummaryItems = options.applePayPaymentRequest.paymentSummaryItems;
+            request.countryCode = options.applePayPaymentRequest.countryCode;
+            request.currencyCode = options.applePayPaymentRequest.currencyCode;
+            request.merchantIdentifier = options.applePayPaymentRequest.merchantIdentifier;
+            request.merchantCapabilities = options.applePayPaymentRequest.merchantCapabilities;
+            request.supportedNetworks = options.applePayPaymentRequest.supportedNetworks as NSArray<string>;
+
+
+            let canMakePayments: boolean = PKPaymentAuthorizationViewController.canMakePayments();
+            let canMakePaymentsUsingNetworks: boolean = PKPaymentAuthorizationViewController.canMakePaymentsUsingNetworks(request.supportedNetworks);
+            let canMakePaymentsUsingNetworksCapabilities: boolean = PKPaymentAuthorizationViewController.canMakePaymentsUsingNetworksCapabilities(request.supportedNetworks, request.merchantCapabilities);
+
+            if (canMakePayments != true) {
+                reject({ error: "canMakePayments returned false" })
+            }
+
+            if (canMakePaymentsUsingNetworks != true) {
+                reject({ error: "canMakePaymentsUsingNetworks returned false" })
+            }
+
+            if (canMakePaymentsUsingNetworksCapabilities != true) {
+                reject({ error: "canMakePaymentsUsingNetworksCapabilities returned false" })
+            }
+
+
+            let applePayController = PKPaymentAuthorizationViewController.alloc().initWithPaymentRequest(request);
+            let pkPaymentDelegateImpl: PKPaymentAuthorizationViewControllerDelegateImpl = new PKPaymentAuthorizationViewControllerDelegateImpl();
+            pkPaymentDelegateImpl.callback = (nonce, error) => {
+                if (error) {
+                    reject({ error: error });
+                }
+                else {
+                    resolve(new PaymentMethodNonce(nonce));
+                }
+            }
+
+            let applePayClient = BTApplePayClient.alloc().initWithAPIClient(this.client);
+
+            pkPaymentDelegateImpl.applePayClient = applePayClient;
+            pkPaymentDelegateImpl.braintree = this;
+
+            let controller = UIApplication.sharedApplication.keyWindow.rootViewController;
+
+            try {
+                applePayController.delegate = pkPaymentDelegateImpl;
+            } catch (error) {
+                reject({ error: error })
+            }
+
+            controller.presentViewControllerAnimatedCompletion(applePayController, true, (): void => {
+            });
+
 
 
         })
@@ -370,9 +443,8 @@ export class Braintree extends BraintreeBase {
                     request.supportedNetworks = options.applePayPaymentRequest.supportedNetworks as NSArray<string>;
 
 
-                    console.log(`canMakePayments(): ${PKPaymentAuthorizationViewController.canMakePayments()}`);
-                    console.log(`canMakePaymentsUsingNetworks(): ${PKPaymentAuthorizationViewController.canMakePaymentsUsingNetworks(request.supportedNetworks)}`);
-                    console.log(`canMakePaymentsUsingNetworksCapabilities(): ${PKPaymentAuthorizationViewController.canMakePaymentsUsingNetworksCapabilities(request.supportedNetworks, request.merchantCapabilities)}`);
+
+
 
                     let applePayController = PKPaymentAuthorizationViewController.alloc().initWithPaymentRequest(request);
 
@@ -460,11 +532,9 @@ export class ThreeDSecureRequestDelegate extends NSObject implements BTThreeDSec
 
     constructor() {
         super();
-        console.log("CREATED FLOW")
     }
 
     onLookupCompleteResultNext(request: BTThreeDSecureRequest, result: BTThreeDSecureLookup, next: () => void): void {
-        console.log("Hier isser leider nicht");
         next();
     }
 }
@@ -473,13 +543,11 @@ export class ViewControllerPresentingDelegate extends NSObject implements BTView
     public static ObjCProtocols = [BTViewControllerPresentingDelegate];
     constructor() {
         super();
-        console.log("CREATED DELEGATE")
     }
     paymentDriverRequestsDismissalOfViewController(driver: any, viewController: UIViewController): void {
         viewController.dismissViewControllerAnimatedCompletion(true, null)
     }
     paymentDriverRequestsPresentationOfViewController(driver: any, viewController: UIViewController): void {
-        console.log("AASDSADASDASDASDADADASD")
         let app = UIApplication.sharedApplication;
         app.keyWindow.rootViewController.presentViewControllerAnimatedCompletion(viewController, true, null);
     }
@@ -491,6 +559,7 @@ export class PKPaymentAuthorizationViewControllerDelegateImpl extends NSObject i
     applePayClient: BTApplePayClient;
     nonce: BTApplePayCardNonce;
     braintree: Braintree;
+    callback: (nonce: BTApplePayCardNonce, error?) => void;
 
     paymentAuthorizationViewControllerDidAuthorizePaymentCompletion?(controller: PKPaymentAuthorizationViewController, payment: PKPayment, completion: (p1: PKPaymentAuthorizationStatus) => void): void {
         console.log(`PaymentAuthorizationViewController Did Authorize Payment Completion executing`);
@@ -501,9 +570,14 @@ export class PKPaymentAuthorizationViewControllerDelegateImpl extends NSObject i
                 completion(PKPaymentAuthorizationStatus.Success);
             } else {
                 completion(PKPaymentAuthorizationStatus.Failure);
+                /*
                 console.dir("#####################");
                 console.log(`error: ${error}`);
                 console.dir("#####################");
+                */
+                if (this.callback) {
+                    this.callback(undefined, error);
+                }
             }
         });
     }
@@ -520,20 +594,28 @@ export class PKPaymentAuthorizationViewControllerDelegateImpl extends NSObject i
             } else {
                 result.status = PKPaymentAuthorizationStatus.Failure;
                 completion(result);
+                /*
                 console.dir("#####################");
                 console.log(`error: ${error}`);
                 console.dir("#####################");
+                */
+                if (this.callback) {
+                    this.callback(undefined, error);
+                }
             }
         });
 
     }
 
     paymentAuthorizationViewControllerDidFinish(controller: PKPaymentAuthorizationViewController): void {
-        console.log(`paymentAuthorizationViewControllerDidFinish(${controller})`);
+        //console.log(`paymentAuthorizationViewControllerDidFinish(${controller})`);
         if (!this.nonce) {
             controller.dismissViewControllerAnimatedCompletion(true, null);
         } else {
             this.braintree.submitApplePayment(this.nonce.nonce);
+            if (this.callback) {
+                this.callback(this.nonce);
+            }
             this.braintree.dropInController.dismissViewControllerAnimatedCompletion(true, null);
         }
     }

@@ -2,11 +2,12 @@
   xmlns:ui="nativescript-braintree">
   <ScrollView>
     <StackLayout class="p-20">
-      <Button tap="{{brainTreePayment}}" text="Pay" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
+      <Button tap="{{brainTreePayment}}" text="DropIn" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
       <Button tap="{{paypal}}" text="PayPal Checkout" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
       <Button tap="{{paypalVault}}" text="PayPal Vault" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
       <Button tap="{{localPayment}}" text="Local" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
       <Button tap="{{creditCard}}" text="credit" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
+      <Button tap="{{native}}" text="{{nativeText}}" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
     </StackLayout>
   </ScrollView>
 </Page>
