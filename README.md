@@ -1,6 +1,6 @@
 [![npm](https://img.shields.io/npm/v/nativescript-braintree.svg)](https://www.npmjs.com/package/nativescript-braintree)
 [![npm](https://img.shields.io/npm/dt/nativescript-braintree.svg?label=npm%20downloads)](https://www.npmjs.com/package/nativescript-braintree)
-
+# This is temporary package, which will eventually PR into the original package. THIS IS EXPERIMENTAL STAGE!
 # nativescript-braintree
 
 Braintree Payment NativeScript plugin for Android & iOS (9+). Works with NS 6+

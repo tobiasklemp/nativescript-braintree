@@ -3,7 +3,12 @@ import { Braintree, BrainTreeOptions, LocalPaymentType } from 'nativescript-brai
 import { ApplePayLineItem } from '../../src';
 const httpModule = require("tns-core-modules/http");
 import * as applicationModule from "tns-core-modules/application";
+import { handleOpenURL, AppURL } from 'nativescript-urlhandler';
 
+
+handleOpenURL((appURL: AppURL) => {
+    console.log('Got the following appURL', appURL);
+});
 export class HelloWorldModel extends Observable {
 
     _braintree: Braintree;
@@ -23,6 +28,9 @@ export class HelloWorldModel extends Observable {
 
     constructor() {
         super();
+        handleOpenURL(function (appURL) {
+            console.log('Got the following appURL', appURL);
+        });
     }
 
     public brainTreePayment() {
@@ -149,7 +157,7 @@ export class HelloWorldModel extends Observable {
     }
 
     native() {
-        let options: BrainTreeOptions = {}
+        let options: BrainTreeOptions = { amount: "0" }
 
         let applePayLineItems = this.getApplePayLineItemsSummary();
         let applePayPaymentRequestObj = this.getApplePayPaymentRequestObj(applePayLineItems);

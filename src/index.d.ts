@@ -2,6 +2,11 @@ import { Observable } from 'tns-core-modules/data/observable';
 import { BraintreeAddress } from './braintree.common';
 
 export declare function setupBraintreeAppDeligate(urlScheme: any): void;
+
+export declare function setUrlScheme(urlScheme): void;
+
+export declare function handleReturnUrl(url, sourceApplication): void
+
 export interface IPayPalAccountNonce { }
 
 export declare class BraintreePayPal {

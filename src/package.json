@@ -1,7 +1,7 @@
 {
     "name": "nativescript-braintree",
-    "version": "2.0.8",
-    "description": "Braintree Payments (Drop-in) plugin for NativeScript.",
+    "version": "3.0.0",
+    "description": "Braintree Payments (Drop-in and Custom) plugin for NativeScript.",
     "main": "braintree",
     "typings": "index.d.ts",
     "nativescript": {
@@ -34,14 +34,14 @@
         "iOS"
     ],
     "author": {
-        "name": "Jibon L. Costa",
-        "email": "jiboncosta57@gmail.com"
+        "name": "Tobias Klemp",
+        "email": "tklemp@gmx.de"
     },
     "bugs": {
-        "url": "https://github.com/jibon57/nativescript-braintree/issues"
+        "url": "https://github.com/tobiasklemp/nativescript-braintree/issues"
     },
     "license": "Apache-2.0",
-    "homepage": "https://github.com/jibon57/nativescript-braintree",
+    "homepage": "https://github.com/tobiasklemp/nativescript-braintree",
     "readmeFilename": "README.md",
     "devDependencies": {
         "tns-core-modules": "^6.2.3",

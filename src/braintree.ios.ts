@@ -63,6 +63,15 @@ export function setupBraintreeAppDeligate(urlScheme) {
     setupAppDeligate(urlScheme);
 }
 
+
+export function setUrlScheme(urlScheme) {
+    BTAppSwitch.setReturnURLScheme(urlScheme);
+}
+
+export function handleReturnUrl(url, sourceApplication) {
+    BTAppSwitch.handleOpenURLSourceApplication(url, sourceApplication);
+}
+
 function getAddressObj(a: BraintreeAddress): BTPostalAddress {
     let address: BTPostalAddress = BTPostalAddress().alloc().init();
     address.countryCodeAlpha2 = a.countryCode;
