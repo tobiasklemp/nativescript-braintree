@@ -6,8 +6,8 @@
     "typings": "index.d.ts",
     "nativescript": {
         "platforms": {
-            "android": "5.0.0",
-            "ios": "5.0.0"
+            "android": "6.3.1",
+            "ios": "6.0.1"
         }
     },
     "scripts": {
