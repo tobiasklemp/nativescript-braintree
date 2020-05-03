@@ -149,6 +149,9 @@ export class BraintreePayPal extends java.lang.Object implements PaymentMethodNo
 
         return global.__native(this);
     }
+    public onPaymentMethodNonceCreated(nonce: BTPaymentMethodNonce): void {
+        this.cb({ nonce: nonce })
+    }
 
     public onResponse(data: string): void {
         this.cb({ data: data });
@@ -167,7 +170,7 @@ export class BraintreePayPal extends java.lang.Object implements PaymentMethodNo
     }
 
     startCheckout(): void {
-        this.fragment.addListener(this);
+        this.fragment.addListener(this)
         PayPal.requestOneTimePayment(this.fragment, this.paypalRequest);
     }
 
@@ -176,9 +179,7 @@ export class BraintreePayPal extends java.lang.Object implements PaymentMethodNo
         PayPal.requestBillingAgreement(this.fragment, this.paypalRequest);
     }
 
-    public onPaymentMethodNonceCreated(nonce: BTPayPalAccountNonce): void {
-        this.cb({ nonce: new PayPalAccountNonce(nonce) })
-    }
+
 
 }
 
@@ -308,10 +309,6 @@ export class BraintreeCard extends java.lang.Object implements PaymentMethodNonc
 
 export class Braintree extends BraintreeBase {
 
-    private paypal: BraintreePayPal;
-    private local: BraintreeLocal;
-    private card: BraintreeCard;
-
     constructor(token: string) {
         super(token);
     }
@@ -321,7 +318,7 @@ export class Braintree extends BraintreeBase {
             let activity = app.android.foregroundActivity || app.android.startActivity;
             let fragment = BraintreeFragment.newInstance(activity, this.token);
 
-            console.log("Angekommen")
+            console.log("Angekommen", fragment);
             if (!options.amount) {
                 reject({ error: "amount is required" });
             }
@@ -333,11 +330,11 @@ export class Braintree extends BraintreeBase {
 
             let request = new PayPalRequest(options.amount);
             request.currencyCode(options.currencyCode);
+            console.log("request created");
 
+            let paypal
 
-
-
-            this.paypal = new BraintreePayPal(fragment, (response: { nonce?: IPayPalAccountNonce, cancelled?: number, error?: any }) => {
+            paypal = new BraintreePayPal(fragment, (response: { nonce?: IPayPalAccountNonce, cancelled?: number, error?: any }) => {
                 if (response.error) {
                     reject(response.error);
                 }
@@ -348,7 +345,8 @@ export class Braintree extends BraintreeBase {
                     resolve(response.nonce)
                 }
             }, request);
-            this.paypal.startCheckout()
+            console.log("Paypal handler created")
+            paypal.startCheckout()
         })
 
     }
@@ -397,8 +395,9 @@ export class Braintree extends BraintreeBase {
                 request.phone(options.info.phone);
             }
 
+            let local
 
-            this.local = new BraintreeLocal(fragment, (response: { nonce?: IPaymentMethodNonce, cancelled?: number, error?: any }) => {
+            local = new BraintreeLocal(fragment, (response: { nonce?: IPaymentMethodNonce, cancelled?: number, error?: any }) => {
                 if (response.error) {
                     reject(response.error);
                 }
@@ -409,7 +408,7 @@ export class Braintree extends BraintreeBase {
                     resolve(response.nonce)
                 }
             }, request);
-            this.local.startLocal();
+            local.startLocal();
         })
 
     }
@@ -431,8 +430,8 @@ export class Braintree extends BraintreeBase {
             request.currencyCode(options.currencyCode);
             request.billingAgreementDescription(options.billingAgreementDescription);
 
-
-            this.paypal = new BraintreePayPal(fragment, (response: { nonce?: IPayPalAccountNonce, cancelled?: number, error?: any }) => {
+            let paypal
+            paypal = new BraintreePayPal(fragment, (response: { nonce?: IPayPalAccountNonce, cancelled?: number, error?: any }) => {
                 if (response.error) {
                     reject(response.error);
                 }
@@ -443,7 +442,7 @@ export class Braintree extends BraintreeBase {
                     resolve(response.nonce)
                 }
             }, request);
-            this.paypal.startVault();
+            paypal.startVault();
         })
     }
 
@@ -462,8 +461,8 @@ export class Braintree extends BraintreeBase {
 
             let activity = app.android.foregroundActivity || app.android.startActivity;
             let fragment = BraintreeFragment.newInstance(activity, this.token);
-
-            this.card = new BraintreeCard(fragment, options, (response) => {
+            let card
+            card = new BraintreeCard(fragment, options, (response) => {
                 if (response.error) {
                     reject(response.error);
                 }
@@ -476,7 +475,7 @@ export class Braintree extends BraintreeBase {
             })
 
 
-            this.card.startPayment();
+            card.startPayment();
         })
     }
 
@@ -516,8 +515,8 @@ export class Braintree extends BraintreeBase {
         return new Promise((resolve, reject) => {
             let activity = app.android.foregroundActivity || app.android.startActivity;
             let fragment = BraintreeFragment.newInstance(activity, this.token);
-
-            this.paypal = new BraintreePayPal(fragment, (response: { nonce?: IPayPalAccountNonce, data?: string, cancelled?: number, error?: any }) => {
+            let paypal
+            paypal = new BraintreePayPal(fragment, (response: { nonce?: IPayPalAccountNonce, data?: string, cancelled?: number, error?: any }) => {
                 if (response.error) {
                     reject(response.error);
                 }
