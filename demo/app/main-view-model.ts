@@ -159,15 +159,24 @@ export class HelloWorldModel extends Observable {
     native() {
         let options: BrainTreeOptions = { amount: "0" }
 
-        let applePayLineItems = this.getApplePayLineItemsSummary();
-        let applePayPaymentRequestObj = this.getApplePayPaymentRequestObj(applePayLineItems);
-
-        options.applePayPaymentRequest = applePayPaymentRequestObj;
         if (applicationModule.ios) {
+            let applePayLineItems = this.getApplePayLineItemsSummary();
+            let applePayPaymentRequestObj = this.getApplePayPaymentRequestObj(applePayLineItems);
+
+            options.applePayPaymentRequest = applePayPaymentRequestObj;
             this.braintree.startApplePayPayment(options).then(res => {
                 console.log("success", res);
             }, err => {
                 console.log("Apple Pay error: ", err.error);
+            })
+        }
+        else {
+            options.currencyCode = "EUR"
+            options.amount = "2.00"
+            this.braintree.startGooglePayPayment(options).then(res => {
+                console.log(res)
+            }, err => {
+                console.log(err);
             })
         }
     }

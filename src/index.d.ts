@@ -30,6 +30,7 @@ export declare class Braintree extends Observable {
   startPaypalCheckoutPayment(options: BrainTreeOptions): Promise<IPayPalAccountNonce>;
   startPaypalVaultPayment(options: BrainTreeOptions): Promise<BTPayPalAccountNonce>
   startApplePayPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce>
+  startGooglePayPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce>
   private callIntent(intent);
   private handleResults(requestCode, resultCode, data);
 }
@@ -49,7 +50,7 @@ export interface BrainTreeOptions {
   /**
     * Amount is ignored when using Apple Pay
     */
-  amount: string;
+  amount?: string;
   collectDeviceData?: boolean;
   requestThreeDSecureVerification?: boolean;
   applePayPaymentRequest?: PKPaymentRequest;
