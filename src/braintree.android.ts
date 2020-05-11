@@ -144,93 +144,119 @@ export interface BraintreeListenerResponse {
 
 export class BraintreePayPal {
 
-    private listener: Listener;
+    private nonceListener: PaymentMethodNonceCreatedListener;
+    private errorListener: BraintreeErrorListener;
+    private cancelListener: BraintreeCancelListener;
 
     constructor(private fragment: BraintreeFragment, private cb: (response: BraintreeListenerResponse) => void, private paypalRequest?: PayPalRequest) {
+        let that = this;
+
+        this.nonceListener = new PaymentMethodNonceCreatedListener({
+            onPaymentMethodNonceCreated(nonce) {
+                that.removeListeners();
+                that.cb({ nonce: new PaymentMethodNonce(nonce) })
+            }
+        })
+
+        this.errorListener = new BraintreeErrorListener({
+            onError(error) {
+                that.removeListeners();
+                that.cb({ error: error });
+            }
+        })
+
+        this.cancelListener = new BraintreeCancelListener({
+            onCancel(cancelCode: number) {
+                that.removeListeners();
+                that.cb({ cancelled: cancelCode });
+            }
+        })
+
 
     }
 
     startCheckout(): void {
-        let listener = new Listener(this.cb, this.removeListener.bind(this));
-        this.fragment.addListener(listener);
+        this.addListeners();
         PayPal.requestOneTimePayment(this.fragment, this.paypalRequest);
     }
 
     startVault(): void {
-        let listener = new Listener(this.cb, this.removeListener.bind(this));
-        this.fragment.addListener(listener);
+        this.addListeners();
         PayPal.requestBillingAgreement(this.fragment, this.paypalRequest);
     }
 
-    removeListener() {
-        //this.fragment.removeListener(this.listener);
+    removeListeners() {
+        this.fragment.removeListener(this.nonceListener)
+        this.fragment.removeListener(this.errorListener)
+        this.fragment.removeListener(this.cancelListener)
+    }
+
+    addListeners() {
+        this.fragment.addListener(this.nonceListener)
+        this.fragment.addListener(this.errorListener)
+        this.fragment.addListener(this.cancelListener)
     }
 
 
 }
 
 
-@Interfaces([PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, BraintreeResponseListener])
-export class Listener extends java.lang.Object implements PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, BraintreeResponseListener<string> {
+export class BraintreeLocal {
 
-    constructor(private cb: (response: BraintreeListenerResponse) => void, private removeListener: () => void) {
-        super();
-
-        return global.__native(this);
-    }
-    public onPaymentMethodNonceCreated(nonce: BTPaymentMethodNonce): void {
-        this.cb({ nonce: nonce })
-        this.removeListener()
-    }
-
-    public onResponse(data: string): void {
-        this.cb({ data: data });
-        this.removeListener()
-    }
-
-    public onError(err: java.lang.Exception): void {
-        this.cb({ error: err });
-        this.removeListener()
-    }
-
-    public onCancel(event: number): void {
-        this.cb({ cancelled: event });
-        this.removeListener()
-    }
-
-    collectDeviceData(fragment): void {
-        DataCollector.collectDeviceData(fragment, this)
-    }
-
-}
-
-@Interfaces([PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, BraintreeResponseListener])
-export class BraintreeLocal extends java.lang.Object implements PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, BraintreeResponseListener<LocalPaymentRequest> {
+    private nonceListener: PaymentMethodNonceCreatedListener;
+    private errorListener: BraintreeErrorListener;
+    private cancelListener: BraintreeCancelListener;
+    private responseListener: BraintreeResponseListener<LocalPaymentRequest>
 
     constructor(private fragment: BraintreeFragment, private cb: (response: { nonce?: PaymentMethodNonce, data?: string, cancelled?: number, error?: any }) => void, private localRequest?: LocalPaymentRequest) {
-        super();
-        this.fragment.addListener(this);
-        return global.__native(this);
-    }
+        let that = this;
 
-    public onResponse(request: LocalPaymentRequest): void {
-        LocalPayment.approvePayment(this.fragment, request);
-    }
+        this.nonceListener = new PaymentMethodNonceCreatedListener({
+            onPaymentMethodNonceCreated(nonce) {
+                that.removeListeners();
+                that.cb({ nonce: new PaymentMethodNonce(nonce) })
+            }
+        })
 
-    public onError(err: java.lang.Exception): void {
-        this.cb({ error: err });
-    }
+        this.errorListener = new BraintreeErrorListener({
+            onError(error) {
+                that.removeListeners();
+                that.cb({ error: error });
+            }
+        })
 
-    public onCancel(event: number): void {
-        this.cb({ cancelled: event });
+        this.cancelListener = new BraintreeCancelListener({
+            onCancel(cancelCode: number) {
+                that.removeListeners();
+                that.cb({ cancelled: cancelCode });
+            }
+        })
+
+        this.responseListener = new BraintreeResponseListener({
+            onResponse(request: LocalPaymentRequest) {
+                that.fragment.removeListener(that.responseListener);
+                that.fragment.addListener(that.nonceListener);
+                LocalPayment.approvePayment(this.fragment, request);
+            }
+        })
     }
 
     startLocal(): void {
-        LocalPayment.startPayment(this.fragment, this.localRequest, this)
+        this.addListeners()
+        LocalPayment.startPayment(this.fragment, this.localRequest, this.responseListener)
     }
 
-    public onPaymentMethodNonceCreated(nonce: BTPaymentMethodNonce): void {
-        this.cb({ nonce: new PaymentMethodNonce(nonce) })
+    removeListeners() {
+        this.fragment.removeListener(this.nonceListener)
+        this.fragment.removeListener(this.responseListener)
+        this.fragment.removeListener(this.errorListener)
+        this.fragment.removeListener(this.cancelListener)
+    }
+
+    addListeners() {
+        this.fragment.addListener(this.responseListener)
+        this.fragment.addListener(this.errorListener)
+        this.fragment.addListener(this.cancelListener)
     }
 
 }
@@ -270,27 +296,66 @@ export class BraintreeGooglePay extends java.lang.Object implements PaymentMetho
 
 }
 
-@Interfaces([PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, ThreeDSecureLookupListener])
-export class BraintreeCard extends java.lang.Object implements PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, ThreeDSecureLookupListener {
+export class BraintreeCard {
 
+
+    private nonceListener: PaymentMethodNonceCreatedListener;
+    private errorListener: BraintreeErrorListener;
+    private cancelListener: BraintreeCancelListener;
+    private lookupListener: ThreeDSecureLookupListener;
     private perfomedVerification: boolean;
 
-    constructor(private fragment: BraintreeFragment, private options: BrainTreeOptions, private callback: (response: BraintreeListenerResponse) => void) {
-        super();
-        this.fragment.addListener(this);
-        return global.__native(this);
-    }
+    constructor(private fragment: BraintreeFragment, private options: BrainTreeOptions, private cb: (response: BraintreeListenerResponse) => void) {
+        let that = this;
 
-    public onLookupComplete(request: ThreeDSecureRequest, lookup: com.braintreepayments.api.models.ThreeDSecureLookup): void {
-        ThreeDSecure.continuePerformVerification(this.fragment, request, lookup);
-    }
+        this.nonceListener = new PaymentMethodNonceCreatedListener({
+            onPaymentMethodNonceCreated(nonce) {
+                if (that.perfomedVerification) {
+                    that.cb({ nonce: new PaymentMethodNonce(nonce) })
+                    that.removeListeners();
+                }
+                else {
+                    that.perfomedVerification = true;
+                    let threeDRequest = new ThreeDSecureRequest();
+                    threeDRequest.amount(that.options.amount);
+                    threeDRequest.nonce(nonce.getNonce());
+                    threeDRequest.versionRequested(ThreeDSecureRequest.VERSION_2);
 
-    public onError(err: java.lang.Exception): void {
-        this.callback({ error: err });
-    }
+                    if (that.options.info) {
+                        threeDRequest.email(that.options.info.email);
+                    }
 
-    public onCancel(event: number): void {
-        this.callback({ cancelled: event });
+                    if (that.options.billingAddress) {
+                        threeDRequest.billingAddress(getSecureAddressObj(that.options.billingAddress));
+                    }
+
+                    ThreeDSecure.performVerification(that.fragment, threeDRequest);
+
+                }
+            }
+        })
+
+        this.errorListener = new BraintreeErrorListener({
+            onError(error) {
+                that.removeListeners();
+                that.cb({ error: error });
+            }
+        })
+
+        this.cancelListener = new BraintreeCancelListener({
+            onCancel(cancelCode: number) {
+                that.removeListeners();
+                that.cb({ cancelled: cancelCode });
+            }
+        })
+
+        this.lookupListener = new ThreeDSecureLookupListener({
+            onLookupComplete(request: ThreeDSecureRequest, lookup: com.braintreepayments.api.models.ThreeDSecureLookup): void {
+                ThreeDSecure.continuePerformVerification(that.fragment, request, lookup);
+            }
+        })
+
+
     }
 
     public startPayment(): void {
@@ -298,32 +363,22 @@ export class BraintreeCard extends java.lang.Object implements PaymentMethodNonc
         cardBuilder.cardNumber(this.options.cardNumber);
         cardBuilder.cvv(this.options.cvv);
         cardBuilder.expirationDate(this.options.expiringMonth + "/" + this.options.expiringYear);
-
+        this.addListeners();
         Card.tokenize(this.fragment, cardBuilder);
     }
 
-    public onPaymentMethodNonceCreated(nonce: BTPaymentMethodNonce): void {
-        if (this.perfomedVerification) {
-            this.callback({ nonce: new PaymentMethodNonce(nonce) })
-        }
-        else {
-            this.perfomedVerification = true;
-            let threeDRequest = new ThreeDSecureRequest();
-            threeDRequest.amount(this.options.amount);
-            threeDRequest.nonce(nonce.getNonce());
-            threeDRequest.versionRequested(ThreeDSecureRequest.VERSION_2);
+    removeListeners() {
+        this.fragment.removeListener(this.nonceListener)
+        this.fragment.removeListener(this.errorListener)
+        this.fragment.removeListener(this.cancelListener)
+        this.fragment.removeListener(this.lookupListener)
+    }
 
-            if (this.options.info) {
-                threeDRequest.email(this.options.info.email);
-            }
-
-            if (this.options.billingAddress) {
-                threeDRequest.billingAddress(getSecureAddressObj(this.options.billingAddress));
-            }
-
-            ThreeDSecure.performVerification(this.fragment, threeDRequest);
-
-        }
+    addListeners() {
+        this.fragment.addListener(this.nonceListener)
+        this.fragment.addListener(this.errorListener)
+        this.fragment.addListener(this.cancelListener)
+        this.fragment.addListener(this.lookupListener)
     }
 
 }
