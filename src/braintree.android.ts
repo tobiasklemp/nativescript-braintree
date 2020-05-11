@@ -141,45 +141,66 @@ export interface BraintreeListenerResponse {
     data?: string;
 }
 
-@Interfaces([PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, BraintreeResponseListener])
-export class BraintreePayPal extends java.lang.Object implements PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, BraintreeResponseListener<string> {
+
+export class BraintreePayPal {
+
+    private listener: Listener;
 
     constructor(private fragment: BraintreeFragment, private cb: (response: BraintreeListenerResponse) => void, private paypalRequest?: PayPalRequest) {
+
+    }
+
+    startCheckout(): void {
+        let listener = new Listener(this.cb, this.removeListener.bind(this));
+        this.fragment.addListener(listener);
+        PayPal.requestOneTimePayment(this.fragment, this.paypalRequest);
+    }
+
+    startVault(): void {
+        let listener = new Listener(this.cb, this.removeListener.bind(this));
+        this.fragment.addListener(listener);
+        PayPal.requestBillingAgreement(this.fragment, this.paypalRequest);
+    }
+
+    removeListener() {
+        this.fragment.removeListener(this.listener);
+    }
+
+
+}
+
+
+@Interfaces([PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, BraintreeResponseListener])
+export class Listener extends java.lang.Object implements PaymentMethodNonceCreatedListener, BraintreeCancelListener, BraintreeErrorListener, BraintreeResponseListener<string> {
+
+    constructor(private cb: (response: BraintreeListenerResponse) => void, private removeListener: () => void) {
         super();
 
         return global.__native(this);
     }
     public onPaymentMethodNonceCreated(nonce: BTPaymentMethodNonce): void {
         this.cb({ nonce: nonce })
+        this.removeListener()
     }
 
     public onResponse(data: string): void {
         this.cb({ data: data });
+        this.removeListener()
     }
 
     public onError(err: java.lang.Exception): void {
         this.cb({ error: err });
+        this.removeListener()
     }
 
     public onCancel(event: number): void {
         this.cb({ cancelled: event });
+        this.removeListener()
     }
 
-    collectDeviceData(): void {
-        DataCollector.collectDeviceData(this.fragment, this)
+    collectDeviceData(fragment): void {
+        DataCollector.collectDeviceData(fragment, this)
     }
-
-    startCheckout(): void {
-        this.fragment.addListener(this)
-        PayPal.requestOneTimePayment(this.fragment, this.paypalRequest);
-    }
-
-    startVault(): void {
-        this.fragment.addListener(this);
-        PayPal.requestBillingAgreement(this.fragment, this.paypalRequest);
-    }
-
-
 
 }
 

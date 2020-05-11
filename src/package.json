@@ -1,6 +1,6 @@
 {
-    "name": "nativescript-braintree",
-    "version": "3.0.0",
+    "name": "nativescript-braintree-temp",
+    "version": "3.1.0",
     "description": "Braintree Payments (Drop-in and Custom) plugin for NativeScript.",
     "main": "braintree",
     "typings": "index.d.ts",
