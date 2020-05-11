@@ -2,28 +2,28 @@ import * as app from 'tns-core-modules/application';
 import { BraintreeBase, BraintreeAddress } from './braintree.common';
 import { BrainTreeOptions, IPayPalAccountNonce, IPaymentMethodNonce, ICardNonce } from '.';
 
-export import PaymentMethodNonceCreatedListener = com.braintreepayments.api.interfaces.PaymentMethodNonceCreatedListener;
-export import PayPalApprovalHandler = com.braintreepayments.api.interfaces.PayPalApprovalHandler;
-export import BraintreeFragment = com.braintreepayments.api.BraintreeFragment;
-export import PayPalRequest = com.braintreepayments.api.models.PayPalRequest;
+import PaymentMethodNonceCreatedListener = com.braintreepayments.api.interfaces.PaymentMethodNonceCreatedListener;
+import PayPalApprovalHandler = com.braintreepayments.api.interfaces.PayPalApprovalHandler;
+import BraintreeFragment = com.braintreepayments.api.BraintreeFragment;
+import PayPalRequest = com.braintreepayments.api.models.PayPalRequest;
 
-export import BraintreeCancelListener = com.braintreepayments.api.interfaces.BraintreeCancelListener;
-export import BraintreeErrorListener = com.braintreepayments.api.interfaces.BraintreeErrorListener;
-export import BraintreeResponseListener = com.braintreepayments.api.interfaces.BraintreeResponseListener;
+import BraintreeCancelListener = com.braintreepayments.api.interfaces.BraintreeCancelListener;
+import BraintreeErrorListener = com.braintreepayments.api.interfaces.BraintreeErrorListener;
+import BraintreeResponseListener = com.braintreepayments.api.interfaces.BraintreeResponseListener;
 
-export import DataCollector = com.braintreepayments.api.DataCollector;
-export import Card = com.braintreepayments.api.Card;
+import DataCollector = com.braintreepayments.api.DataCollector;
+import Card = com.braintreepayments.api.Card;
 
-export import CardBuilder = com.braintreepayments.api.models.CardBuilder;
-export import LocalPaymentRequest = com.braintreepayments.api.models.LocalPaymentRequest;
-export import DropInRequest = com.braintreepayments.api.dropin.DropInRequest;
-export import ThreeDSecureRequest = com.braintreepayments.api.models.ThreeDSecureRequest;
-export import ThreeDSecure = com.braintreepayments.api.ThreeDSecure;
-export import ThreeDSecureLookupListener = com.braintreepayments.api.interfaces.ThreeDSecureLookupListener;
-export import ThreeDSecureLookup = com.braintreepayments.api.models.ThreeDSecureLookup;
-export import ThreeDSecurePostalAddress = com.braintreepayments.api.models.ThreeDSecurePostalAddress;
+import CardBuilder = com.braintreepayments.api.models.CardBuilder;
+import LocalPaymentRequest = com.braintreepayments.api.models.LocalPaymentRequest;
+import DropInRequest = com.braintreepayments.api.dropin.DropInRequest;
+import ThreeDSecureRequest = com.braintreepayments.api.models.ThreeDSecureRequest;
+import ThreeDSecure = com.braintreepayments.api.ThreeDSecure;
+import ThreeDSecureLookupListener = com.braintreepayments.api.interfaces.ThreeDSecureLookupListener;
+import ThreeDSecureLookup = com.braintreepayments.api.models.ThreeDSecureLookup;
+import ThreeDSecurePostalAddress = com.braintreepayments.api.models.ThreeDSecurePostalAddress;
 
-export import PostalAddress = com.braintreepayments.api.models.PostalAddress;
+import PostalAddress = com.braintreepayments.api.models.PostalAddress;
 
 //export import GooglePaymentRequest = com.braintreepayments.api.models.GooglePaymentRequest;
 //export import GooglePayment = com.google.android.gms.wallet.GooglePayment;
@@ -32,12 +32,12 @@ export import PostalAddress = com.braintreepayments.api.models.PostalAddress;
 //export import WalletConstants = com.google.android.gms.wallet.WalletConstants;
 
 
-export import PayPal = com.braintreepayments.api.PayPal;
-export import LocalPayment = com.braintreepayments.api.LocalPayment;
+import PayPal = com.braintreepayments.api.PayPal;
+import LocalPayment = com.braintreepayments.api.LocalPayment;
 
 
-export import BTPaymentMethodNonce = com.braintreepayments.api.models.PaymentMethodNonce;
-export import BTPayPalAccountNonce = com.braintreepayments.api.models.PayPalAccountNonce;
+import BTPaymentMethodNonce = com.braintreepayments.api.models.PaymentMethodNonce;
+import BTPayPalAccountNonce = com.braintreepayments.api.models.PayPalAccountNonce;
 
 function getAddressObj(a: BraintreeAddress): PostalAddress {
     let address = new PostalAddress();
@@ -163,7 +163,7 @@ export class BraintreePayPal {
     }
 
     removeListener() {
-        this.fragment.removeListener(this.listener);
+        //this.fragment.removeListener(this.listener);
     }
 
 
