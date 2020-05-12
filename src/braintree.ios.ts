@@ -1,6 +1,6 @@
 import { BrainTreeOptions, IPayPalAccountNonce, IPaymentMethodNonce } from '.';
 import { BraintreeBase, BraintreeAddress } from './braintree.common';
-const setupAppDeligate = require('./getappdelegate').setupAppDeligate;
+import { setupAppDeligate, enableMultipleOverridesFor } from "./getappdelegate"
 declare const BTDropInRequest, BTDropInController, UIApplication, PPDataCollector, BTPostalAddress;
 
 class PayPalAccountNonce implements IPayPalAccountNonce {
@@ -61,6 +61,10 @@ class PaymentMethodNonce implements IPaymentMethodNonce {
 
 export function setupBraintreeAppDeligate(urlScheme) {
     setupAppDeligate(urlScheme);
+}
+
+export function overrideFunction(classRef, methodName, nextImplementation) {
+    enableMultipleOverridesFor(classRef, methodName, nextImplementation);
 }
 
 

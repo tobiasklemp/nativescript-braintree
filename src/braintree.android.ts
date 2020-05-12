@@ -49,6 +49,10 @@ export function setupBraintreeAppDeligate(urlScheme: any) {
     // to avoid error
 }
 
+export function overrideFunction(classRef, methodName, nextImplementation) {
+
+}
+
 export class PayPalAccountNonce implements IPayPalAccountNonce {
 
     firstName: string;

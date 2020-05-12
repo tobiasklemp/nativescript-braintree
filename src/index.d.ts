@@ -2,6 +2,7 @@ import { Observable } from 'tns-core-modules/data/observable';
 import { BraintreeAddress } from './braintree.common';
 
 export declare function setupBraintreeAppDeligate(urlScheme: any): void;
+export declare function overrideFunction(classRef, methodName, nextImplementation): any;
 
 export declare function setUrlScheme(urlScheme): void;
 
