@@ -8,6 +8,7 @@
       <Button tap="{{localPayment}}" text="Local" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
       <Button tap="{{creditCard}}" text="credit" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
       <Button tap="{{native}}" text="{{nativeText}}" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
+      <Button tap="{{data}}" text="DeviceData" fontSize="30" height="100" width="200" backgroundColor="#cccccc"/>
     </StackLayout>
   </ScrollView>
 </Page>

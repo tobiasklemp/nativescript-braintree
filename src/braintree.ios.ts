@@ -64,7 +64,7 @@ export function setupBraintreeAppDeligate(urlScheme) {
 }
 
 export function overrideFunction(classRef, methodName, nextImplementation) {
-    enableMultipleOverridesFor(classRef, methodName, nextImplementation);
+    return enableMultipleOverridesFor(classRef, methodName, nextImplementation);
 }
 
 
@@ -388,125 +388,143 @@ export class Braintree extends BraintreeBase {
         })
     }
 
-    public startPayment(token: any, options: BrainTreeOptions) {
+    public startPayment(token: any, options: BrainTreeOptions): Promise<{ nonce: string, deviceData: string }> {
+        return new Promise((resolve, reject) => {
+            let request: BTDropInRequest = BTDropInRequest.alloc().init();
 
-        let request = BTDropInRequest.alloc().init();
+            if (options.enableCards == false) {
+                request.cardDisabled = true;
+            }
 
-        if (options.amount) {
-            request.amount = options.amount;
-        }
-        if (options.collectDeviceData) {
-            request.collectDeviceData = true;
-        }
-        if (options.requestThreeDSecureVerification && options.amount) {
-            let threeDSecureRequest = BTThreeDSecureRequest.alloc().init();
-            threeDSecureRequest.amount = options.amount;
-            threeDSecureRequest.versionRequested = BTThreeDSecureVersion.Version2;
-            request.threeDSecureVerification = true;
-            request.threeDSecureRequest = threeDSecureRequest;
-        }
-        let dropIn = BTDropInController.alloc().initWithAuthorizationRequestHandler(token, request, (controller, result, error) => {
-            if (error !== null) {
+            if (options.enablePayPal == false) {
+                request.paypalDisabled = true;
+            }
 
-                setTimeout(() => {
-                    this.notify({
-                        eventName: 'error',
-                        object: this
-                    });
-                });
+            if (options.enableVenmo == false) {
+                request.venmoDisabled = true;
+            }
 
-            } else if (result.cancelled) {
-                this.output.status = 'cancelled';
-                this.output.msg = 'User has cancelled payment';
+            if (options.enableApplePay == false) {
+                request.applePayDisabled = true;
+            }
 
-                setTimeout(() => {
-                    this.notify({
-                        eventName: 'cancel',
-                        object: this
-                    });
-                });
 
-            } else {
+            if (options.amount) {
+                request.amount = options.amount;
+            }
 
-                if (typeof result.paymentMethod == null) {
 
-                    this.output.status = 'error';
-                    this.output.msg = 'Nonce Value empty';
-
+            if (options.requestThreeDSecureVerification && options.amount) {
+                let threeDSecureRequest = BTThreeDSecureRequest.alloc().init();
+                threeDSecureRequest.amount = options.amount;
+                threeDSecureRequest.versionRequested = BTThreeDSecureVersion.Version2;
+                request.threeDSecureVerification = true;
+                request.threeDSecureRequest = threeDSecureRequest;
+            }
+            let dropIn = BTDropInController.alloc().initWithAuthorizationRequestHandler(token, request, (controller, result, error) => {
+                if (error !== null) {
+                    reject(this);
                     setTimeout(() => {
                         this.notify({
                             eventName: 'error',
                             object: this
                         });
                     });
-                    return;
-                }
 
+                } else if (result.cancelled) {
+                    this.output.status = 'cancelled';
+                    this.output.msg = 'User has cancelled payment';
+                    reject("cancelled");
+                    setTimeout(() => {
+                        this.notify({
+                            eventName: 'cancel',
+                            object: this
+                        });
+                    });
 
-                // Apple Pay implementation
-                if (result.paymentDescription === "Apple Pay") {
+                } else {
 
-                    let request = PKPaymentRequest.alloc().init();
+                    if (typeof result.paymentMethod == null) {
 
-                    request.paymentSummaryItems = options.applePayPaymentRequest.paymentSummaryItems;
-                    request.countryCode = options.applePayPaymentRequest.countryCode;
-                    request.currencyCode = options.applePayPaymentRequest.currencyCode;
-                    request.merchantIdentifier = options.applePayPaymentRequest.merchantIdentifier;
-                    request.merchantCapabilities = options.applePayPaymentRequest.merchantCapabilities;
-                    request.supportedNetworks = options.applePayPaymentRequest.supportedNetworks as NSArray<string>;
-
-
-
-
-
-                    let applePayController = PKPaymentAuthorizationViewController.alloc().initWithPaymentRequest(request);
-
-                    let pkPaymentDelegateImpl: PKPaymentAuthorizationViewControllerDelegateImpl = new PKPaymentAuthorizationViewControllerDelegateImpl();
-
-                    let applePayClient = new BTApplePayClient(dropIn.apiClient);
-
-                    pkPaymentDelegateImpl.applePayClient = applePayClient;
-                    pkPaymentDelegateImpl.braintree = this;
-
-                    try {
-                        applePayController.delegate = pkPaymentDelegateImpl;
-                    } catch (error) {
-                        console.log(`Initialization of PKPaymentAuthorizationViewController failed`);
-                        let alertController = UIAlertController.alertControllerWithTitleMessagePreferredStyle("Error", "An error has occurred, please try again or use a different payment method.", UIAlertControllerStyle.Alert);
-                        alertController.addAction(UIAlertAction.actionWithTitleStyleHandler("Ok", UIAlertActionStyle.Default, null));
-                        controller.presentViewControllerAnimatedCompletion(alertController, true, null);
+                        this.output.status = 'error';
+                        this.output.msg = 'Nonce Value empty';
+                        reject("no nonce received")
+                        setTimeout(() => {
+                            this.notify({
+                                eventName: 'error',
+                                object: this
+                            });
+                        });
                         return;
                     }
 
 
-                    console.log(`applePayController: ${applePayController}`);
-                    console.log(`delegateImpl: ${pkPaymentDelegateImpl}`);
+                    // Apple Pay implementation
+                    if (result.paymentDescription === "Apple Pay") {
 
-                    this.dropInController = controller;
-                    controller.presentViewControllerAnimatedCompletion(applePayController, true, (): void => {
-                    });
+                        let request = PKPaymentRequest.alloc().init();
 
-                    return;
+                        request.paymentSummaryItems = options.applePayPaymentRequest.paymentSummaryItems;
+                        request.countryCode = options.applePayPaymentRequest.countryCode;
+                        request.currencyCode = options.applePayPaymentRequest.currencyCode;
+                        request.merchantIdentifier = options.applePayPaymentRequest.merchantIdentifier;
+                        request.merchantCapabilities = options.applePayPaymentRequest.merchantCapabilities;
+                        request.supportedNetworks = options.applePayPaymentRequest.supportedNetworks as NSArray<string>;
 
-                } else {
-                    this.output.nonce = result.paymentMethod.nonce;
-                    this.output.paymentMethodType = result.paymentMethod.type;
-                    this.output.status = 'success';
-                    this.output.msg = 'Got Payment Nonce Value';
-                    this.output.deviceInfo = PPDataCollector.collectPayPalDeviceData();
-                    setTimeout(() => {
-                        this.notify({
-                            eventName: 'success',
-                            object: this
+
+
+
+
+                        let applePayController = PKPaymentAuthorizationViewController.alloc().initWithPaymentRequest(request);
+
+                        let pkPaymentDelegateImpl: PKPaymentAuthorizationViewControllerDelegateImpl = new PKPaymentAuthorizationViewControllerDelegateImpl();
+
+                        let applePayClient = new BTApplePayClient(dropIn.apiClient);
+
+                        pkPaymentDelegateImpl.applePayClient = applePayClient;
+                        pkPaymentDelegateImpl.braintree = this;
+
+                        try {
+                            applePayController.delegate = pkPaymentDelegateImpl;
+                        } catch (error) {
+                            console.log(`Initialization of PKPaymentAuthorizationViewController failed`);
+                            let alertController = UIAlertController.alertControllerWithTitleMessagePreferredStyle("Error", "An error has occurred, please try again or use a different payment method.", UIAlertControllerStyle.Alert);
+                            alertController.addAction(UIAlertAction.actionWithTitleStyleHandler("Ok", UIAlertActionStyle.Default, null));
+                            controller.presentViewControllerAnimatedCompletion(alertController, true, null);
+                            return;
+                        }
+
+
+                        console.log(`applePayController: ${applePayController}`);
+                        console.log(`delegateImpl: ${pkPaymentDelegateImpl}`);
+
+                        this.dropInController = controller;
+                        controller.presentViewControllerAnimatedCompletion(applePayController, true, (): void => {
                         });
-                    });
-                }
-            }
-            controller.dismissViewControllerAnimatedCompletion(true, null);
-        });
 
-        let app = UIApplication.sharedApplication;
-        app.keyWindow.rootViewController.presentViewControllerAnimatedCompletion(dropIn, true, null);
+                        return;
+
+                    } else {
+                        this.output.nonce = result.paymentMethod.nonce;
+                        this.output.paymentMethodType = result.paymentMethod.type;
+                        this.output.status = 'success';
+                        this.output.msg = 'Got Payment Nonce Value';
+                        this.output.deviceInfo = PPDataCollector.collectPayPalDeviceData();
+                        resolve({ nonce: result.paymentMethod.nonce, deviceData: PPDataCollector.collectPayPalDeviceData() })
+                        setTimeout(() => {
+                            this.notify({
+                                eventName: 'success',
+                                object: this
+                            });
+                        });
+                    }
+                }
+                controller.dismissViewControllerAnimatedCompletion(true, null);
+            });
+
+            let app = UIApplication.sharedApplication;
+            app.keyWindow.rootViewController.presentViewControllerAnimatedCompletion(dropIn, true, null);
+        })
     }
 
     submitApplePayment(applePayNonce: string): void {

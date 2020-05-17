@@ -33,7 +33,12 @@ export class HelloWorldModel extends Observable {
         });
     }
 
-    public brainTreePayment() {
+    async data() {
+        let data = await this.braintree.collectData();
+        console.log(data)
+    }
+
+    public async brainTreePayment() {
 
         let opts: BrainTreeOptions = {
             amount: "0.01",
@@ -41,7 +46,8 @@ export class HelloWorldModel extends Observable {
             requestThreeDSecureVerification: true,
             enableGooglePay: true,
             // Apple Pay payment request
-            currencyCode: "USD"
+            currencyCode: "USD",
+            enablePayPal: false
         };
 
         if (applicationModule.ios) {
@@ -57,7 +63,9 @@ export class HelloWorldModel extends Observable {
 
         let braintree = new Braintree(this.token);
 
-        braintree.startPayment(token, opts);
+        let data = await braintree.startPayment(token, opts);
+
+        console.log("Got data: ", data)
 
         braintree.on("success", (res) => {
 
