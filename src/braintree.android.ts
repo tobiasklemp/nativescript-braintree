@@ -691,8 +691,8 @@ export class Braintree extends BraintreeBase {
 
 
                 setTimeout(function () {
-                    if (this.cb) {
-                        this.cb(paymentMethodNonce, result.getDeviceData());
+                    if (t.cb) {
+                        t.cb(paymentMethodNonce, result.getDeviceData());
                     }
                     t.notify({
                         eventName: 'success',
@@ -707,8 +707,8 @@ export class Braintree extends BraintreeBase {
 
 
                 setTimeout(function () {
-                    if (this.cb) {
-                        this.cb(undefined, undefined, "cancelled");
+                    if (t.cb) {
+                        t.cb(undefined, undefined, "cancelled");
                     }
                     t.notify({
                         eventName: 'cancel',
@@ -721,8 +721,8 @@ export class Braintree extends BraintreeBase {
                 let exception = data.getSerializableExtra(com.braintreepayments.api.dropin.DropInActivity.EXTRA_ERROR);
                 t.output.msg = exception.getMessage();
                 setTimeout(function () {
-                    if (this.cb) {
-                        this.cb(undefined, undefined, exception.getMessage());
+                    if (t.cb) {
+                        t.cb(undefined, undefined, exception.getMessage());
                     }
                     t.notify({
                         eventName: 'error',
