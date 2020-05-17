@@ -1,7 +1,7 @@
 import { BrainTreeOptions, IPayPalAccountNonce, IPaymentMethodNonce } from '.';
 import { BraintreeBase, BraintreeAddress } from './braintree.common';
 import { setupAppDeligate, enableMultipleOverridesFor } from "./getappdelegate"
-declare const BTDropInRequest, BTDropInController, UIApplication, PPDataCollector, BTPostalAddress;
+//declare const BTDropInRequest, BTDropInController, UIApplication, PPDataCollector, BTPostalAddress;
 
 class PayPalAccountNonce implements IPayPalAccountNonce {
 
@@ -77,7 +77,7 @@ export function handleReturnUrl(url, sourceApplication) {
 }
 
 function getAddressObj(a: BraintreeAddress): BTPostalAddress {
-    let address: BTPostalAddress = BTPostalAddress().alloc().init();
+    let address: BTPostalAddress = new BTPostalAddress();
     address.countryCodeAlpha2 = a.countryCode;
     address.extendedAddress = a.extendedAddress;
     address.streetAddress = a.streetAddress;
@@ -140,8 +140,10 @@ export class Braintree extends BraintreeBase {
         this.token = token;
     }
 
-    public collectDeviceData(): string {
-        return PPDataCollector.collectPayPalDeviceData();
+    public collectData(): Promise<string> {
+        return new Promise((resolve, reject) => {
+            resolve(PPDataCollector.collectPayPalDeviceData());
+        })
     }
 
     public startPaypalCheckoutPayment(options: BrainTreeOptions): Promise<IPayPalAccountNonce> {
@@ -415,16 +417,17 @@ export class Braintree extends BraintreeBase {
 
 
             if (options.requestThreeDSecureVerification && options.amount) {
-                let threeDSecureRequest = BTThreeDSecureRequest.alloc().init();
-                threeDSecureRequest.amount = options.amount;
+                let threeDSecureRequest = new BTThreeDSecureRequest();
+                threeDSecureRequest.amount = <any>Number(options.amount);
                 threeDSecureRequest.versionRequested = BTThreeDSecureVersion.Version2;
                 request.threeDSecureVerification = true;
                 request.threeDSecureRequest = threeDSecureRequest;
             }
+
             let dropIn = BTDropInController.alloc().initWithAuthorizationRequestHandler(token, request, (controller, result, error) => {
                 if (error !== null) {
-                    reject(this);
                     setTimeout(() => {
+                        reject(this);
                         this.notify({
                             eventName: 'error',
                             object: this
@@ -434,8 +437,8 @@ export class Braintree extends BraintreeBase {
                 } else if (result.cancelled) {
                     this.output.status = 'cancelled';
                     this.output.msg = 'User has cancelled payment';
-                    reject("cancelled");
                     setTimeout(() => {
+                        reject("cancelled");
                         this.notify({
                             eventName: 'cancel',
                             object: this
@@ -448,8 +451,8 @@ export class Braintree extends BraintreeBase {
 
                         this.output.status = 'error';
                         this.output.msg = 'Nonce Value empty';
-                        reject("no nonce received")
                         setTimeout(() => {
+                            reject("no nonce received")
                             this.notify({
                                 eventName: 'error',
                                 object: this
@@ -479,7 +482,7 @@ export class Braintree extends BraintreeBase {
 
                         let pkPaymentDelegateImpl: PKPaymentAuthorizationViewControllerDelegateImpl = new PKPaymentAuthorizationViewControllerDelegateImpl();
 
-                        let applePayClient = new BTApplePayClient(dropIn.apiClient);
+                        let applePayClient = new BTApplePayClient({ APIClient: dropIn.apiClient });
 
                         pkPaymentDelegateImpl.applePayClient = applePayClient;
                         pkPaymentDelegateImpl.braintree = this;
@@ -510,8 +513,8 @@ export class Braintree extends BraintreeBase {
                         this.output.status = 'success';
                         this.output.msg = 'Got Payment Nonce Value';
                         this.output.deviceInfo = PPDataCollector.collectPayPalDeviceData();
-                        resolve({ nonce: result.paymentMethod.nonce, deviceData: PPDataCollector.collectPayPalDeviceData() })
                         setTimeout(() => {
+                            resolve({ nonce: result.paymentMethod.nonce, deviceData: PPDataCollector.collectPayPalDeviceData() })
                             this.notify({
                                 eventName: 'success',
                                 object: this
@@ -521,6 +524,7 @@ export class Braintree extends BraintreeBase {
                 }
                 controller.dismissViewControllerAnimatedCompletion(true, null);
             });
+
 
             let app = UIApplication.sharedApplication;
             app.keyWindow.rootViewController.presentViewControllerAnimatedCompletion(dropIn, true, null);

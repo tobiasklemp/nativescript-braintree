@@ -47,7 +47,7 @@ export class HelloWorldModel extends Observable {
             enableGooglePay: true,
             // Apple Pay payment request
             currencyCode: "USD",
-            enablePayPal: false
+            enablePayPal: true
         };
 
         if (applicationModule.ios) {
@@ -63,9 +63,9 @@ export class HelloWorldModel extends Observable {
 
         let braintree = new Braintree(this.token);
 
-        let data = await braintree.startPayment(token, opts);
+        let data = braintree.startPayment(token, opts);
 
-        console.log("Got data: ", data)
+        //console.log("Got data: ", data)
 
         braintree.on("success", (res) => {
 
