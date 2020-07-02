@@ -234,37 +234,76 @@ export class BraintreeLocal {
 
 }
 
-@Interfaces([com.braintreepayments.api.interfaces.PaymentMethodNonceCreatedListener, com.braintreepayments.api.interfaces.BraintreeCancelListener, com.braintreepayments.api.interfaces.BraintreeErrorListener, com.braintreepayments.api.interfaces.BraintreeResponseListener])
-export class BraintreeGooglePay extends java.lang.Object implements com.braintreepayments.api.interfaces.PaymentMethodNonceCreatedListener, com.braintreepayments.api.interfaces.BraintreeCancelListener, com.braintreepayments.api.interfaces.BraintreeErrorListener, com.braintreepayments.api.interfaces.BraintreeResponseListener<boolean> {
 
-    constructor(private fragment: com.braintreepayments.api.BraintreeFragment, request, private cb: (response: { nonce?: PaymentMethodNonce, data?: string, cancelled?: number, error?: any }) => void, private localRequest?: com.braintreepayments.api.models.LocalPaymentRequest) {
-        super();
-        this.fragment.addListener(this);
-        return global.__native(this);
+export class BraintreeGooglePay {
+
+    private errorListener: com.braintreepayments.api.interfaces.BraintreeErrorListener;
+    private responseListener: com.braintreepayments.api.interfaces.BraintreeResponseListener<any>;
+    private cancelListener: com.braintreepayments.api.interfaces.BraintreeCancelListener;
+    private nonceListener: com.braintreepayments.api.interfaces.PaymentMethodNonceCreatedListener;
+
+
+    private isReadyCB: (isReady: boolean) => void;
+
+    constructor(private fragment: com.braintreepayments.api.BraintreeFragment, private request: com.braintreepayments.api.models.GooglePaymentRequest, private cb: (response: { nonce?: PaymentMethodNonce, data?: string, cancelled?: number, error?: any }) => void) {
+        let that = this;
+
+        this.errorListener = new com.braintreepayments.api.interfaces.BraintreeErrorListener({
+            onError(error) {
+                that.removeListeners();
+                console.log(error)
+                that.cb({ error: error });
+            }
+        })
+
+        this.responseListener = new com.braintreepayments.api.interfaces.BraintreeResponseListener({
+            onResponse(res) {
+                that.isReadyCB(res);
+            }
+        })
+
+        this.cancelListener = new com.braintreepayments.api.interfaces.BraintreeCancelListener({
+            onCancel(cancelCode: number) {
+                that.removeListeners();
+                that.cb({ cancelled: cancelCode });
+            }
+        })
+
+        this.nonceListener = new com.braintreepayments.api.interfaces.PaymentMethodNonceCreatedListener({
+            onPaymentMethodNonceCreated(nonce) {
+                that.removeListeners();
+                that.cb({ nonce: new PaymentMethodNonce(nonce) })
+            }
+        })
     }
 
-    public onResponse(response: boolean): void {
-        if (!response) {
-            this.cb({ error: "Device is not ready for Google Pay payments." });
-        }
-    }
-
-    public onError(err: java.lang.Exception): void {
-        this.cb({ error: err });
-    }
-
-    public onCancel(event: number): void {
-        this.cb({ cancelled: event });
+    isReady(): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            this.isReadyCB = (isReady) => {
+                resolve(isReady);
+            }
+            com.braintreepayments.api.GooglePayment.isReadyToPay(this.fragment, this.responseListener);
+        })
     }
 
     startPayment(): void {
-
+        this.addListeners();
+        com.braintreepayments.api.GooglePayment.requestPayment(this.fragment, this.request)
 
 
     }
 
-    public onPaymentMethodNonceCreated(nonce: com.braintreepayments.api.models.PaymentMethodNonce): void {
-        this.cb({ nonce: new PaymentMethodNonce(nonce) })
+    removeListeners() {
+        this.fragment.removeListener(this.errorListener)
+        this.fragment.removeListener(this.cancelListener)
+        this.fragment.removeListener(this.nonceListener)
+
+    }
+
+    addListeners() {
+        this.fragment.addListener(this.errorListener)
+        this.fragment.addListener(this.cancelListener)
+        this.fragment.addListener(this.nonceListener)
     }
 
 }
@@ -367,7 +406,6 @@ export class Braintree extends BraintreeBase {
             let activity = app.android.foregroundActivity || app.android.startActivity;
             let fragment = com.braintreepayments.api.BraintreeFragment.newInstance(activity, this.token);
 
-            console.log("Angekommen", fragment);
             if (!options.amount) {
                 reject({ error: "amount is required" });
             }
@@ -379,11 +417,8 @@ export class Braintree extends BraintreeBase {
 
             let request = new com.braintreepayments.api.models.PayPalRequest(options.amount);
             request.currencyCode(options.currencyCode);
-            console.log("request created");
 
-            let paypal
-
-            paypal = new BraintreePayPal(fragment, (response: { nonce?: IPayPalAccountNonce, cancelled?: number, error?: any }) => {
+            let paypal = new BraintreePayPal(fragment, (response: { nonce?: IPayPalAccountNonce, cancelled?: number, error?: any }) => {
                 if (response.error) {
                     reject(response.error);
                 }
@@ -394,7 +429,6 @@ export class Braintree extends BraintreeBase {
                     resolve(response.nonce)
                 }
             }, request);
-            console.log("Paypal handler created")
             paypal.startCheckout()
         })
 
@@ -402,7 +436,6 @@ export class Braintree extends BraintreeBase {
 
     public startLocalPayment(options: BrainTreeOptions): Promise<any> {
         return new Promise((resolve, reject) => {
-            console.log("STARTING LOCAL PAYMENT")
             let activity = app.android.foregroundActivity || app.android.startActivity;
             let fragment = com.braintreepayments.api.BraintreeFragment.newInstance(activity, this.token);
 
@@ -442,6 +475,7 @@ export class Braintree extends BraintreeBase {
                 request.surname(options.info.lastName);
                 request.email(options.info.email);
                 request.phone(options.info.phone);
+
             }
 
             let local
@@ -530,14 +564,13 @@ export class Braintree extends BraintreeBase {
 
     startGooglePayPayment(options: BrainTreeOptions): Promise<ICardNonce> {
         return new Promise((resolve, reject) => {
-            reject()
-            /*let activity = app.android.foregroundActivity || app.android.startActivity;
-            let fragment = BraintreeFragment.newInstance(activity, this.token);
+            let activity = app.android.foregroundActivity || app.android.startActivity;
+            let fragment = com.braintreepayments.api.BraintreeFragment.newInstance(activity, this.token);
 
-            let googlePaymentRequest = new GooglePaymentRequest()
-                .transactionInfo(TransactionInfo.newBuilder()
+            let googlePaymentRequest = new com.braintreepayments.api.models.GooglePaymentRequest()
+                .transactionInfo(com.google.android.gms.wallet.TransactionInfo.newBuilder()
                     .setTotalPrice(options.amount)
-                    .setTotalPriceStatus(WalletConstants.TOTAL_PRICE_STATUS_FINAL)
+                    .setTotalPriceStatus(com.google.android.gms.wallet.WalletConstants.TOTAL_PRICE_STATUS_FINAL)
                     .setCurrencyCode(options.currencyCode)
                     .build())
                 .billingAddressRequired(true);
@@ -554,9 +587,16 @@ export class Braintree extends BraintreeBase {
                 }
             })
 
+            googlePay.isReady().then(res => {
+                if (!res) {
+                    googlePay.startPayment();
+                }
+                else {
+                    reject("Device not ready for GooglePay.")
+                }
+            })
 
-            googlePay.startPayment();
-            */
+
         })
     }
 
@@ -739,7 +779,7 @@ export class Braintree extends BraintreeBase {
     private enableGooglePay(dropInRequest: com.braintreepayments.api.dropin.DropInRequest, options: BrainTreeOptions): void {
 
 
-        /*const GooglePaymentRequest = com.braintreepayments.api.models.GooglePaymentRequest;
+        const GooglePaymentRequest = com.braintreepayments.api.models.GooglePaymentRequest;
         const TransactionInfo = com.google.android.gms.wallet.TransactionInfo;
         const WalletConstants = com.google.android.gms.wallet.WalletConstants;
 
@@ -752,7 +792,7 @@ export class Braintree extends BraintreeBase {
             .billingAddressRequired(true);
 
         dropInRequest.googlePaymentRequest(googlePaymentRequest);
-        */
+
     }
 
 }

@@ -181,6 +181,7 @@ export class HelloWorldModel extends Observable {
         else {
             options.currencyCode = "EUR"
             options.amount = "2.00"
+            options.enableGooglePay = true;
             this.braintree.startGooglePayPayment(options).then(res => {
                 console.log(res)
             }, err => {

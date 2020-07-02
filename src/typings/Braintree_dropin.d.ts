@@ -169,64 +169,7 @@ declare module com {
 	}
 }
 
-declare module com {
-	export module google {
-		export module android {
-			export module gms {
-				export module wallet {
-					export class TransactionInfo {
-						public static class: java.lang.Class<com.google.android.gms.wallet.TransactionInfo>;
-						public static EXTRA_CHECKOUT_REQUEST: string;
-						public static CREATOR: globalAndroid.os.Parcelable.Creator<com.google.android.gms.wallet.TransactionInfo>;
 
-						public constructor();
-						public static newBuilder(): any
-
-					}
-				}
-			}
-		}
-	}
-}
-
-declare module com {
-	export module google {
-		export module android {
-			export module gms {
-				export module wallet {
-					export class GooglePayment {
-						public static class: java.lang.Class<com.google.android.gms.wallet.GooglePayment>;
-						public static EXTRA_CHECKOUT_REQUEST: string;
-						public static CREATOR: globalAndroid.os.Parcelable.Creator<com.google.android.gms.wallet.GooglePayment>;
-						public static isReadyToPay(fragment, listener): void;
-						public constructor();
-						public static newBuilder(): any
-
-					}
-				}
-			}
-		}
-	}
-}
-
-declare module com {
-	export module google {
-		export module android {
-			export module gms {
-				export module wallet {
-					export class WalletConstants {
-						public static class: java.lang.Class<com.braintreepayments.api.models.GooglePaymentRequest>;
-						public static EXTRA_CHECKOUT_REQUEST: string;
-						public static CREATOR: globalAndroid.os.Parcelable.Creator<com.braintreepayments.api.models.GooglePaymentRequest>;
-						static TOTAL_PRICE_STATUS_FINAL: any;
-						public constructor();
-
-					}
-				}
-			}
-		}
-	}
-}
 
 declare module com {
 	export module braintreepayments {
