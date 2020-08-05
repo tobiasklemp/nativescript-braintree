@@ -1,6 +1,5 @@
 [![npm](https://img.shields.io/npm/v/nativescript-braintree.svg)](https://www.npmjs.com/package/nativescript-braintree)
 [![npm](https://img.shields.io/npm/dt/nativescript-braintree.svg?label=npm%20downloads)](https://www.npmjs.com/package/nativescript-braintree)
-# This is temporary package, which will eventually PR into the original package. THIS IS EXPERIMENTAL STAGE!
 # nativescript-braintree
 
 Braintree Payment NativeScript plugin for Android & iOS (9+). Works with NS 6+
@@ -37,8 +36,8 @@ NativeScript 4.X
 tns plugin add nativescript-braintree@2.0.1
 ```
 
-## Usage 
-	
+## Usage DropIn UI
+1. Callback approach
 ``` typescript
 import { Braintree, BrainTreeOptions } from 'nativescript-braintree';
 
@@ -68,6 +67,63 @@ braintree.on("error", function (res) {
     let output = res.object.get("output");
     console.dir(output);
 })
+```
+2. Promise approach
+
+``` typescript
+import { Braintree, BrainTreeOptions } from 'nativescript-braintree';
+
+let opts :BrainTreeOptions = {
+  amount: "10.0",
+  collectDeviceData: true,
+  requestThreeDSecureVerification: false
+}
+
+let token = token; //Get the token from server. https://developers.braintreepayments.com/start/hello-server/php
+
+let braintree = new Braintree(token);
+
+let nonce = await braintree.startPayment(token, opts)
+
+``` 
+
+## Usage Custom Integration
+Currently supported payment methods:
+
+- paypal
+- paypal vault flow
+- local payment methods
+- credit card 
+
+upcoming: 
+- apple pay
+- google pay
+
+``` typescript
+import { Braintree, BrainTreeOptions } from 'nativescript-braintree';
+
+let opts :BrainTreeOptions = {
+  amount: "10.0",
+  collectDeviceData: true,
+  requestThreeDSecureVerification: false
+}
+
+let token = token; //Get the token from server. https://developers.braintreepayments.com/start/hello-server/php
+
+let braintree = new Braintree(token);
+
+let nonce = await braintree.startPaypalCheckoutPayment(opts)
+``` 
+For some payment methods it might be required to also send device data to the server.
+
+``` typescript
+import { Braintree, BrainTreeOptions } from 'nativescript-braintree';
+
+let token = token; //Get the token from server. https://developers.braintreepayments.com/start/hello-server/php
+
+let braintree = new Braintree(token);
+
+let data = braintree.collectData();
 ```
 
 ## Set up Apple Pay

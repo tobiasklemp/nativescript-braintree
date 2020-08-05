@@ -1,8 +1,11 @@
 import { BrainTreeOptions, IPayPalAccountNonce, IPaymentMethodNonce } from '.';
-import { BraintreeBase, BraintreeAddress } from './braintree.common';
+import { BraintreeBase, BraintreeAddress, checkRequirements } from './braintree.common';
 import { setupAppDeligate, enableMultipleOverridesFor } from "./getappdelegate"
 //declare const BTDropInRequest, BTDropInController, UIApplication, PPDataCollector, BTPostalAddress;
 
+/**
+ * extended PaymentMethodNonce object
+ */
 class PayPalAccountNonce implements IPayPalAccountNonce {
 
     public billingAddress: BraintreeAddress;
@@ -46,6 +49,9 @@ class PayPalAccountNonce implements IPayPalAccountNonce {
 
 }
 
+/**
+ * Basic Paymentmethodnonce object
+ */
 class PaymentMethodNonce implements IPaymentMethodNonce {
 
     description: string;
@@ -59,6 +65,10 @@ class PaymentMethodNonce implements IPaymentMethodNonce {
     }
 }
 
+/**
+ * Setup appswitch
+ * @param urlScheme 
+ */
 export function setupBraintreeAppDeligate(urlScheme) {
     setupAppDeligate(urlScheme);
 }
@@ -76,6 +86,10 @@ export function handleReturnUrl(url, sourceApplication) {
     BTAppSwitch.handleOpenURLSourceApplication(url, sourceApplication);
 }
 
+/**
+ * Convert JS address to BTAddress
+ * @param a JS address to be converted
+ */
 function getAddressObj(a: BraintreeAddress): BTPostalAddress {
     let address: BTPostalAddress = new BTPostalAddress();
     address.countryCodeAlpha2 = a.countryCode;
@@ -89,6 +103,10 @@ function getAddressObj(a: BraintreeAddress): BTPostalAddress {
     return address;
 }
 
+/**
+ * Convert JS address to BTAddress for 3DSecure requests
+ * @param a JS address to be converted
+ */
 function getSecureAddressObj(a: BraintreeAddress): BTThreeDSecurePostalAddress {
     let address: BTThreeDSecurePostalAddress = BTThreeDSecurePostalAddress.alloc().init();
     address.countryCodeAlpha2 = a.countryCode;
@@ -104,6 +122,10 @@ function getSecureAddressObj(a: BraintreeAddress): BTThreeDSecurePostalAddress {
     return address;
 }
 
+/**
+ * Convert BTAddress to JS address
+ * @param a BTAddress to be converted
+ */
 function convertAddressObj(a: BTPostalAddress): BraintreeAddress {
     let address: BraintreeAddress = new BraintreeAddress();
     address.countryCode = a.countryCodeAlpha2;
@@ -118,6 +140,9 @@ function convertAddressObj(a: BTPostalAddress): BraintreeAddress {
 export class Braintree extends BraintreeBase {
     dropInController;
 
+    /**
+     * init with token
+     */
     private _client: BTAPIClient;
 
     private get client(): BTAPIClient {
@@ -127,6 +152,9 @@ export class Braintree extends BraintreeBase {
         return this._client
     }
 
+    /**
+     * callback approach of forked plugin, still present to avoid breaking change
+     */
     public output = {
         'status': 'fail',
         'msg': 'unknown',
@@ -140,197 +168,223 @@ export class Braintree extends BraintreeBase {
         this.token = token;
     }
 
+    /**
+     * Collecting device data is required for some paymentmethods
+     */
     public collectData(): Promise<string> {
         return new Promise((resolve, reject) => {
             resolve(PPDataCollector.collectPayPalDeviceData());
         })
     }
 
+    /**
+     * One time PayPal payment
+     * @param options Braintree options
+     */
     public startPaypalCheckoutPayment(options: BrainTreeOptions): Promise<IPayPalAccountNonce> {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let paypalDriver: BTPayPalDriver = new BTPayPalDriver({ APIClient: this.client });
+                let request = BTPayPalRequest.alloc().initWithAmount(options.amount);
 
-            let paypalDriver: BTPayPalDriver = new BTPayPalDriver({ APIClient: this.client });
-            let request = BTPayPalRequest.alloc().initWithAmount(options.amount);
-            request.currencyCode = options.currencyCode;
+                await checkRequirements(options, { currencyCode: "" });
 
-            paypalDriver.requestOneTimePaymentCompletion(request, (tokenizedPayPalAccount: BTPayPalAccountNonce, error) => {
-                if (tokenizedPayPalAccount) {
-                    resolve(new PayPalAccountNonce(tokenizedPayPalAccount));
-                }
-                else if (error) {
-                    reject(error);
-                }
-                else {
-                    reject({ cancelled: true });
-                }
-            })
-        })
-    }
-
-    public startPaypalVaultPayment(options: BrainTreeOptions): Promise<IPayPalAccountNonce> {
-        return new Promise((resolve, reject) => {
-
-            let paypalDriver: BTPayPalDriver = new BTPayPalDriver({ APIClient: this.client });
-            let request = BTPayPalRequest.alloc().init();
-            request.billingAgreementDescription = options.billingAgreementDescription;
-
-            paypalDriver.requestBillingAgreementCompletion(request, (tokenizedPayPalAccount: BTPayPalAccountNonce, error) => {
-                if (tokenizedPayPalAccount) {
-                    resolve(new PayPalAccountNonce(tokenizedPayPalAccount));
-                }
-                else if (error) {
-                    reject(error);
-                }
-                else {
-                    reject({ cancelled: true });
-                }
-            })
-        })
-    }
-
-    public startLocalPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce> {
-        return new Promise((resolve, reject) => {
-
-            let driver = BTPaymentFlowDriver.alloc().initWithAPIClient(this.client);
-            driver.viewControllerPresentingDelegate = new ViewControllerPresentingDelegate();
-            let delegate = new LocalPaymentRequestDelegate();
-
-            let request = BTLocalPaymentRequest.alloc().init();
-
-            if (options.currencyCode) {
                 request.currencyCode = options.currencyCode;
-            }
-            else {
-                reject({ error: "currencyCode is required" });
-            }
 
-            if (options.localPaymentType) {
-                request.paymentType = options.localPaymentType;
-            }
-            else {
-                reject({ error: "localPaymentType is required" });
-            }
-
-            if (options.amount) {
-                request.amount = options.amount;
-            }
-            else {
-                reject({ error: "amount is required" });
-            }
-
-            if (options.billingAddress && options.billingAddress.firstname) {
-                request.givenName = options.billingAddress.firstname;
-            }
-
-            if (options.billingAddress && options.billingAddress.lastname) {
-                request.surname = options.billingAddress.lastname;
-            }
-
-            if (options.info && options.info.phone) {
-                request.phone = options.info.phone;
-            }
-
-            if (options.billingAddress) {
-                request.address = getAddressObj(options.billingAddress);
-            }
-
-            if (options.info && options.info.email) {
-                request.email = options.info.email;
-            }
-
-
-            request.shippingAddressRequired = options.shippingAddressRequired == true ? true : false;
-
-            request.localPaymentFlowDelegate = delegate;
-
-            driver.startPaymentFlowCompletion(request, (result: BTPaymentFlowResult, error) => {
-                if (result) {
-                    resolve(new PaymentMethodNonce(result));
-                }
-                else if (error) {
-                    reject(error);
-                }
-                else {
-                    reject({ cancelled: true });
-                }
-            })
-
-        })
-    }
-
-    public startCreditCardPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce> {
-        return new Promise((resolve, reject) => {
-
-            let driver = BTPaymentFlowDriver.alloc().initWithAPIClient(this.client);
-            driver.viewControllerPresentingDelegate = new ViewControllerPresentingDelegate();
-
-            let delegate = new ThreeDSecureRequestDelegate();
-            let cardClient: BTCardClient = BTCardClient.alloc().initWithAPIClient(this.client);
-
-            let card: BTCard = BTCard.alloc().initWithNumberExpirationMonthExpirationYearCvv(options.cardNumber, options.expiringMonth, options.expiringYear, options.cvv);
-            cardClient.tokenizeCardCompletion(card, (tokenizedCard, error) => {
-                if (tokenizedCard) {
-                    let request = BTThreeDSecureRequest.alloc().init();
-                    request.threeDSecureRequestDelegate = delegate;
-
-                    if (options.amount) {
-                        // For some reason this request requires a number for amount altough type is string - this fixes a crash
-                        request.amount = <any>Number.parseFloat(options.amount);
+                paypalDriver.requestOneTimePaymentCompletion(request, (tokenizedPayPalAccount: BTPayPalAccountNonce, error) => {
+                    if (tokenizedPayPalAccount) {
+                        resolve(new PayPalAccountNonce(tokenizedPayPalAccount));
+                    }
+                    else if (error) {
+                        reject(error);
                     }
                     else {
-                        reject({ error: "amount is required" });
+                        reject({ cancelled: true });
                     }
+                })
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
 
+    /**
+     * Request a billing agreement to vault a paypal account for future payments
+     * @param options Braintree options
+     */
+    public startPaypalVaultPayment(options: BrainTreeOptions): Promise<IPayPalAccountNonce> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let paypalDriver: BTPayPalDriver = new BTPayPalDriver({ APIClient: this.client });
+                let request = BTPayPalRequest.alloc().init();
+                await checkRequirements(options, { billingAgreementDescription: "" });
 
-                    request.nonce = tokenizedCard.nonce
+                request.billingAgreementDescription = options.billingAgreementDescription;
 
-                    if (options.info && options.info.email) {
-                        request.email = options.info.email;
+                paypalDriver.requestBillingAgreementCompletion(request, (tokenizedPayPalAccount: BTPayPalAccountNonce, error) => {
+                    if (tokenizedPayPalAccount) {
+                        resolve(new PayPalAccountNonce(tokenizedPayPalAccount));
                     }
-
-                    request.versionRequested = BTThreeDSecureVersion.Version2;
-                    if (options.billingAddress) {
-                        request.billingAddress = getSecureAddressObj(options.billingAddress)
+                    else if (error) {
+                        reject(error);
                     }
-
-                    if (options.shippingAddress) {
-                        let info = BTThreeDSecureAdditionalInformation.alloc().init();
-                        info.shippingAddress = getSecureAddressObj(options.shippingAddress);
+                    else {
+                        reject({ cancelled: true });
                     }
+                })
+            } catch (error) {
+                reject(error);
+            }
+        })
+    }
+
+    /**
+     * Local one time payments
+     * @param options Braintree options
+     */
+    public startLocalPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let driver = BTPaymentFlowDriver.alloc().initWithAPIClient(this.client);
+                driver.viewControllerPresentingDelegate = new ViewControllerPresentingDelegate();
+                let delegate = new LocalPaymentRequestDelegate();
+
+                let request = BTLocalPaymentRequest.alloc().init();
+
+                await checkRequirements(options, { currencyCode: "", localPaymentType: "", amount: "" })
+
+                request.amount = options.amount;
+                request.currencyCode = options.currencyCode;
+                request.paymentType = options.localPaymentType;
+
+                if (options.billingAddress && options.billingAddress.firstname) {
+                    request.givenName = options.billingAddress.firstname;
+                }
+
+                if (options.billingAddress && options.billingAddress.lastname) {
+                    request.surname = options.billingAddress.lastname;
+                }
+
+                if (options.info && options.info.phone) {
+                    request.phone = options.info.phone;
+                }
+
+                if (options.billingAddress) {
+                    request.address = getAddressObj(options.billingAddress);
+                }
+
+                if (options.info && options.info.email) {
+                    request.email = options.info.email;
+                }
 
 
-                    driver.startPaymentFlowCompletion(request, (secureResult, error) => {
-                        if (error) {
-                            reject(error);
+                request.shippingAddressRequired = options.shippingAddressRequired == true ? true : false;
+
+                request.localPaymentFlowDelegate = delegate;
+
+                driver.startPaymentFlowCompletion(request, (result: BTPaymentFlowResult, error) => {
+                    if (result) {
+                        resolve(new PaymentMethodNonce(result));
+                    }
+                    else if (error) {
+                        reject(error);
+                    }
+                    else {
+                        reject({ cancelled: true });
+                    }
+                })
+            } catch (error) {
+                reject(error)
+            }
+
+        })
+    }
+
+    /**
+     * One time creditcard payment - Dropin recommended over this approach
+     * @param options Braintree options
+     */
+    public startCreditCardPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let driver = BTPaymentFlowDriver.alloc().initWithAPIClient(this.client);
+                driver.viewControllerPresentingDelegate = new ViewControllerPresentingDelegate();
+
+                let delegate = new ThreeDSecureRequestDelegate();
+                let cardClient: BTCardClient = BTCardClient.alloc().initWithAPIClient(this.client);
+
+                let card: BTCard = BTCard.alloc().initWithNumberExpirationMonthExpirationYearCvv(options.cardNumber, options.expiringMonth, options.expiringYear, options.cvv);
+                cardClient.tokenizeCardCompletion(card, (tokenizedCard, error) => {
+                    if (tokenizedCard) {
+                        let request = BTThreeDSecureRequest.alloc().init();
+                        request.threeDSecureRequestDelegate = delegate;
+
+                        checkRequirements(options, { amount: "" })
+                        if (options.amount) {
+                            // For some reason this request requires a number for amount altough type is string - this fixes a crash
+                            request.amount = <any>Number.parseFloat(options.amount);
+                        }
+                        else {
+                            reject({ error: "amount is required" });
                         }
 
-                        if (tokenizedCard.threeDSecureInfo.liabilityShiftPossible) {
-                            if (tokenizedCard.threeDSecureInfo.liabilityShifted) {
-                                console.log("3D Secure authentication success")
-                            } else {
-                                console.log("3D Secure authentication failed");
+
+                        request.nonce = tokenizedCard.nonce
+
+                        if (options.info && options.info.email) {
+                            request.email = options.info.email;
+                        }
+
+                        request.versionRequested = BTThreeDSecureVersion.Version2;
+                        if (options.billingAddress) {
+                            request.billingAddress = getSecureAddressObj(options.billingAddress)
+                        }
+
+                        if (options.shippingAddress) {
+                            let info = BTThreeDSecureAdditionalInformation.alloc().init();
+                            info.shippingAddress = getSecureAddressObj(options.shippingAddress);
+                        }
+
+
+                        driver.startPaymentFlowCompletion(request, (secureResult, error) => {
+                            if (error) {
+                                reject(error);
                             }
-                        } else {
-                            console.log("3D Secure authentication was not possible")
-                        }
-                        resolve(new PaymentMethodNonce(tokenizedCard));
-                    })
 
-                }
-                else if (error) {
-                    reject(error);
-                }
-                else {
-                    reject();
-                }
-            })
+                            if (tokenizedCard.threeDSecureInfo.liabilityShiftPossible) {
+                                if (tokenizedCard.threeDSecureInfo.liabilityShifted) {
+
+                                } else {
+
+                                }
+                            } else {
+                                reject()
+                            }
+                            resolve(new PaymentMethodNonce(tokenizedCard));
+                        })
+
+                    }
+                    else if (error) {
+                        reject(error);
+                    }
+                    else {
+                        reject();
+                    }
+                })
+            } catch (error) {
+                reject(error)
+            }
 
 
         })
     }
 
+    /**
+     * apple pay payment - not finished, not working outside of dropIn UI
+     * @param options Braintree options
+    */
     public startApplePayPayment(options: BrainTreeOptions): Promise<IPaymentMethodNonce> {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             let request = PKPaymentRequest.alloc().init();
 
             request.paymentSummaryItems = options.applePayPaymentRequest.paymentSummaryItems;
@@ -390,144 +444,153 @@ export class Braintree extends BraintreeBase {
         })
     }
 
+    /******************************************************************************************************
+     * forked plugin is updated
+     * - to support promise approach
+     * - use new declaration files
+     * - the dropIn is likely to be moved into the new structure and is left to avoid breaking change
+     ******************************************************************************************************/
     public startPayment(token: any, options: BrainTreeOptions): Promise<{ nonce: string, deviceData: string }> {
-        return new Promise((resolve, reject) => {
-            let request: BTDropInRequest = BTDropInRequest.alloc().init();
+        return new Promise(async (resolve, reject) => {
+            try {
+                let request: BTDropInRequest = BTDropInRequest.alloc().init();
 
-            if (options.enableCards == false) {
-                request.cardDisabled = true;
-            }
+                if (options.enableCards == false) {
+                    request.cardDisabled = true;
+                }
 
-            if (options.enablePayPal == false) {
-                request.paypalDisabled = true;
-            }
+                if (options.enablePayPal == false) {
+                    request.paypalDisabled = true;
+                }
 
-            if (options.enableVenmo == false) {
-                request.venmoDisabled = true;
-            }
+                if (options.enableVenmo == false) {
+                    request.venmoDisabled = true;
+                }
 
-            if (options.enableApplePay == false) {
-                request.applePayDisabled = true;
-            }
+                if (options.enableApplePay == false) {
+                    request.applePayDisabled = true;
+                }
 
-
-            if (options.amount) {
+                await checkRequirements(options, { amount: "" });
                 request.amount = options.amount;
-            }
 
 
-            if (options.requestThreeDSecureVerification && options.amount) {
-                let threeDSecureRequest = new BTThreeDSecureRequest();
-                threeDSecureRequest.amount = <any>Number(options.amount);
-                threeDSecureRequest.versionRequested = BTThreeDSecureVersion.Version2;
-                request.threeDSecureVerification = true;
-                request.threeDSecureRequest = threeDSecureRequest;
-            }
 
-            let dropIn = BTDropInController.alloc().initWithAuthorizationRequestHandler(token, request, (controller, result, error) => {
-                if (error !== null) {
-                    setTimeout(() => {
-                        reject(this);
-                        this.notify({
-                            eventName: 'error',
-                            object: this
-                        });
-                    });
+                if (options.requestThreeDSecureVerification && options.amount) {
+                    let threeDSecureRequest = new BTThreeDSecureRequest();
+                    threeDSecureRequest.amount = <any>Number(options.amount);
+                    threeDSecureRequest.versionRequested = BTThreeDSecureVersion.Version2;
+                    request.threeDSecureVerification = true;
+                    request.threeDSecureRequest = threeDSecureRequest;
+                }
 
-                } else if (result.cancelled) {
-                    this.output.status = 'cancelled';
-                    this.output.msg = 'User has cancelled payment';
-                    setTimeout(() => {
-                        reject("cancelled");
-                        this.notify({
-                            eventName: 'cancel',
-                            object: this
-                        });
-                    });
-
-                } else {
-
-                    if (typeof result.paymentMethod == null) {
-
-                        this.output.status = 'error';
-                        this.output.msg = 'Nonce Value empty';
+                let dropIn = BTDropInController.alloc().initWithAuthorizationRequestHandler(token, request, (controller, result, error) => {
+                    if (error !== null) {
                         setTimeout(() => {
-                            reject("no nonce received")
+                            reject(this);
                             this.notify({
                                 eventName: 'error',
                                 object: this
                             });
                         });
-                        return;
-                    }
 
+                    } else if (result.cancelled) {
+                        this.output.status = 'cancelled';
+                        this.output.msg = 'User has cancelled payment';
+                        setTimeout(() => {
+                            reject("cancelled");
+                            this.notify({
+                                eventName: 'cancel',
+                                object: this
+                            });
+                        });
 
-                    // Apple Pay implementation
-                    if (result.paymentDescription === "Apple Pay") {
+                    } else {
 
-                        let request = PKPaymentRequest.alloc().init();
+                        if (typeof result.paymentMethod == null) {
 
-                        request.paymentSummaryItems = options.applePayPaymentRequest.paymentSummaryItems;
-                        request.countryCode = options.applePayPaymentRequest.countryCode;
-                        request.currencyCode = options.applePayPaymentRequest.currencyCode;
-                        request.merchantIdentifier = options.applePayPaymentRequest.merchantIdentifier;
-                        request.merchantCapabilities = options.applePayPaymentRequest.merchantCapabilities;
-                        request.supportedNetworks = options.applePayPaymentRequest.supportedNetworks as NSArray<string>;
-
-
-
-
-
-                        let applePayController = PKPaymentAuthorizationViewController.alloc().initWithPaymentRequest(request);
-
-                        let pkPaymentDelegateImpl: PKPaymentAuthorizationViewControllerDelegateImpl = new PKPaymentAuthorizationViewControllerDelegateImpl();
-
-                        let applePayClient = new BTApplePayClient({ APIClient: dropIn.apiClient });
-
-                        pkPaymentDelegateImpl.applePayClient = applePayClient;
-                        pkPaymentDelegateImpl.braintree = this;
-
-                        try {
-                            applePayController.delegate = pkPaymentDelegateImpl;
-                        } catch (error) {
-                            console.log(`Initialization of PKPaymentAuthorizationViewController failed`);
-                            let alertController = UIAlertController.alertControllerWithTitleMessagePreferredStyle("Error", "An error has occurred, please try again or use a different payment method.", UIAlertControllerStyle.Alert);
-                            alertController.addAction(UIAlertAction.actionWithTitleStyleHandler("Ok", UIAlertActionStyle.Default, null));
-                            controller.presentViewControllerAnimatedCompletion(alertController, true, null);
+                            this.output.status = 'error';
+                            this.output.msg = 'Nonce Value empty';
+                            setTimeout(() => {
+                                reject("no nonce received")
+                                this.notify({
+                                    eventName: 'error',
+                                    object: this
+                                });
+                            });
                             return;
                         }
 
 
-                        console.log(`applePayController: ${applePayController}`);
-                        console.log(`delegateImpl: ${pkPaymentDelegateImpl}`);
+                        // Apple Pay implementation
+                        if (result.paymentDescription === "Apple Pay") {
 
-                        this.dropInController = controller;
-                        controller.presentViewControllerAnimatedCompletion(applePayController, true, (): void => {
-                        });
+                            let request = PKPaymentRequest.alloc().init();
 
-                        return;
+                            request.paymentSummaryItems = options.applePayPaymentRequest.paymentSummaryItems;
+                            request.countryCode = options.applePayPaymentRequest.countryCode;
+                            request.currencyCode = options.applePayPaymentRequest.currencyCode;
+                            request.merchantIdentifier = options.applePayPaymentRequest.merchantIdentifier;
+                            request.merchantCapabilities = options.applePayPaymentRequest.merchantCapabilities;
+                            request.supportedNetworks = options.applePayPaymentRequest.supportedNetworks as NSArray<string>;
 
-                    } else {
-                        this.output.nonce = result.paymentMethod.nonce;
-                        this.output.paymentMethodType = result.paymentMethod.type;
-                        this.output.status = 'success';
-                        this.output.msg = 'Got Payment Nonce Value';
-                        this.output.deviceInfo = PPDataCollector.collectPayPalDeviceData();
-                        setTimeout(() => {
-                            resolve({ nonce: result.paymentMethod.nonce, deviceData: PPDataCollector.collectPayPalDeviceData() })
-                            this.notify({
-                                eventName: 'success',
-                                object: this
+
+
+
+
+                            let applePayController = PKPaymentAuthorizationViewController.alloc().initWithPaymentRequest(request);
+
+                            let pkPaymentDelegateImpl: PKPaymentAuthorizationViewControllerDelegateImpl = new PKPaymentAuthorizationViewControllerDelegateImpl();
+
+                            let applePayClient = new BTApplePayClient({ APIClient: dropIn.apiClient });
+
+                            pkPaymentDelegateImpl.applePayClient = applePayClient;
+                            pkPaymentDelegateImpl.braintree = this;
+
+                            try {
+                                applePayController.delegate = pkPaymentDelegateImpl;
+                            } catch (error) {
+                                console.log(`Initialization of PKPaymentAuthorizationViewController failed`);
+                                let alertController = UIAlertController.alertControllerWithTitleMessagePreferredStyle("Error", "An error has occurred, please try again or use a different payment method.", UIAlertControllerStyle.Alert);
+                                alertController.addAction(UIAlertAction.actionWithTitleStyleHandler("Ok", UIAlertActionStyle.Default, null));
+                                controller.presentViewControllerAnimatedCompletion(alertController, true, null);
+                                return;
+                            }
+
+
+                            console.log(`applePayController: ${applePayController}`);
+                            console.log(`delegateImpl: ${pkPaymentDelegateImpl}`);
+
+                            this.dropInController = controller;
+                            controller.presentViewControllerAnimatedCompletion(applePayController, true, (): void => {
                             });
-                        });
+
+                            return;
+
+                        } else {
+                            this.output.nonce = result.paymentMethod.nonce;
+                            this.output.paymentMethodType = result.paymentMethod.type;
+                            this.output.status = 'success';
+                            this.output.msg = 'Got Payment Nonce Value';
+                            this.output.deviceInfo = PPDataCollector.collectPayPalDeviceData();
+                            setTimeout(() => {
+                                resolve({ nonce: result.paymentMethod.nonce, deviceData: PPDataCollector.collectPayPalDeviceData() })
+                                this.notify({
+                                    eventName: 'success',
+                                    object: this
+                                });
+                            });
+                        }
                     }
-                }
-                controller.dismissViewControllerAnimatedCompletion(true, null);
-            });
+                    controller.dismissViewControllerAnimatedCompletion(true, null);
+                });
 
 
-            let app = UIApplication.sharedApplication;
-            app.keyWindow.rootViewController.presentViewControllerAnimatedCompletion(dropIn, true, null);
+                let app = UIApplication.sharedApplication;
+                app.keyWindow.rootViewController.presentViewControllerAnimatedCompletion(dropIn, true, null);
+            } catch (error) {
+                reject(error)
+            }
         })
     }
 
@@ -549,6 +612,9 @@ export class Braintree extends BraintreeBase {
     }
 }
 
+/**
+ * Delegate for local payments
+ */
 export class LocalPaymentRequestDelegate extends NSObject implements BTLocalPaymentRequestDelegate {
     public static ObjCProtocols = [BTLocalPaymentRequestDelegate];
     constructor() {
@@ -562,6 +628,9 @@ export class LocalPaymentRequestDelegate extends NSObject implements BTLocalPaym
 
 }
 
+/**
+ * Delegate for CreditCard payments with 3DSecure
+ */
 export class ThreeDSecureRequestDelegate extends NSObject implements BTThreeDSecureRequestDelegate {
     public static ObjCProtocols = [BTThreeDSecureRequestDelegate];
 
@@ -574,6 +643,9 @@ export class ThreeDSecureRequestDelegate extends NSObject implements BTThreeDSec
     }
 }
 
+/**
+ * presenting credit card form. 
+ */
 export class ViewControllerPresentingDelegate extends NSObject implements BTViewControllerPresentingDelegate {
     public static ObjCProtocols = [BTViewControllerPresentingDelegate];
     constructor() {
@@ -589,6 +661,9 @@ export class ViewControllerPresentingDelegate extends NSObject implements BTView
 
 }
 
+/**
+ * Apple Pay view controller
+ */
 export class PKPaymentAuthorizationViewControllerDelegateImpl extends NSObject implements PKPaymentAuthorizationViewControllerDelegate {
     public static ObjCProtocols = [PKPaymentAuthorizationViewControllerDelegate];
     applePayClient: BTApplePayClient;

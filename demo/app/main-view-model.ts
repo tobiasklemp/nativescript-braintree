@@ -1,5 +1,5 @@
 import { Observable } from 'tns-core-modules/data/observable';
-import { Braintree, BrainTreeOptions, LocalPaymentType } from 'nativescript-braintree';
+import { Braintree, BrainTreeOptions } from 'nativescript-braintree';
 import { ApplePayLineItem } from '../../src';
 const httpModule = require("tns-core-modules/http");
 import * as applicationModule from "tns-core-modules/application";
@@ -179,7 +179,7 @@ export class HelloWorldModel extends Observable {
             })
         }
         else {
-            options.currencyCode = "EUR"
+            options.currencyCode = "USD"
             options.amount = "2.00"
             options.enableGooglePay = true;
             this.braintree.startGooglePayPayment(options).then(res => {
