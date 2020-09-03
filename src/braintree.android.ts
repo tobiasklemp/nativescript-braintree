@@ -355,6 +355,9 @@ export class Braintree extends BraintreeBase {
                     }
                 )
 
+                request.amount(options.amount);
+                request.paymentType(options.localPaymentType);
+
                 if (options.shippingAddressRequired != undefined) {
                     request.shippingAddressRequired(options.shippingAddressRequired);
                 }

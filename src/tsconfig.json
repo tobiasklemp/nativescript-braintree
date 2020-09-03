@@ -27,5 +27,9 @@
         "node_modules",
         "typings"
     ],
+    "include": [
+        "../src",
+        "**/*"
+    ],
     "compileOnSave": false
 }

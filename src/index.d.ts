@@ -9,6 +9,13 @@ export declare function setUrlScheme(urlScheme): void;
 
 export declare function handleReturnUrl(url, sourceApplication): void
 
+export declare enum SupportedAPCards {
+  AmEx = "AmEx",
+  Discover = "Discover",
+  MasterCard = "MasterCard",
+  Visa = "Visa",
+}
+
 export declare class Braintree extends Observable {
   constructor(token: string);
 
@@ -91,6 +98,15 @@ export interface BrainTreeOptions {
 
   /** Requesting this will prompt a security check before payment  */
   requestThreeDSecureVerification?: boolean;
+
+  /** line items needed for apple pay */
+  lineItems?: Array<{ label: string, amount: string }>;
+
+  merchantIdentifier?: string;
+
+  merchantCapabilities?;
+
+  supportedNetworks?: SupportedAPCards;
 
   /** Apple Pay request -Likely to be removed in future update.-  */
   applePayPaymentRequest?: PKPaymentRequest;

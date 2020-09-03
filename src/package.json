@@ -1,6 +1,6 @@
 {
-    "name": "nativescript-braintree",
-    "version": "3.3.4",
+    "name": "nativescript-braintree-temp",
+    "version": "3.3.6",
     "description": "Braintree Payments (Drop-in and Custom) plugin for NativeScript.",
     "main": "braintree",
     "typings": "index.d.ts",
@@ -12,6 +12,7 @@
     },
     "scripts": {
         "tsc": "tsc",
+        "tar": "npm run build && ./../publish/pack.sh",
         "build": "npm i && npm run tsc && npm run build.native",
         "build.native": "node scripts/build-native.js",
         "postclone": "npm i && node scripts/postclone.js && cd ../demo && npm i && npx rimraf -- package-lock.json && cd ../src",

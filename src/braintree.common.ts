@@ -70,7 +70,7 @@ export interface BraintreeError {
  * @param options provided options
  * @param checklist populate required fields
  */
-export async function checkRequirements(options: BrainTreeOptions, checklist: BrainTreeOptions): Promise<boolean> {
+export async function checkRequirements(options: BrainTreeOptions, checklist: BrainTreeOptions): Promise<any> {
     return new Promise((resolve, reject) => {
         let errs: Array<BraintreeError> = new Array();
         for (let field in checklist) {

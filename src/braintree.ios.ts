@@ -1,4 +1,4 @@
-import { BrainTreeOptions, IPayPalAccountNonce, IPaymentMethodNonce } from '.';
+import { BrainTreeOptions, IPayPalAccountNonce, IPaymentMethodNonce, ApplePayLineItem, SupportedAPCards } from '.';
 import { BraintreeBase, BraintreeAddress, checkRequirements } from './braintree.common';
 import { setupAppDeligate, enableMultipleOverridesFor } from "./getappdelegate"
 //declare const BTDropInRequest, BTDropInController, UIApplication, PPDataCollector, BTPostalAddress;
@@ -387,13 +387,46 @@ export class Braintree extends BraintreeBase {
         return new Promise(async (resolve, reject) => {
             let request = PKPaymentRequest.alloc().init();
 
-            request.paymentSummaryItems = options.applePayPaymentRequest.paymentSummaryItems;
-            request.countryCode = options.applePayPaymentRequest.countryCode;
-            request.currencyCode = options.applePayPaymentRequest.currencyCode;
-            request.merchantIdentifier = options.applePayPaymentRequest.merchantIdentifier;
-            request.merchantCapabilities = options.applePayPaymentRequest.merchantCapabilities;
-            request.supportedNetworks = options.applePayPaymentRequest.supportedNetworks as NSArray<string>;
+            if (options.lineItems) {
+                let lineItemsArray = [];
+                options.lineItems.map((lineItem) => {
 
+                    let pkSummaryItem = PKPaymentSummaryItem.summaryItemWithLabelAmount(lineItem.label, NSDecimalNumber.decimalNumberWithString(lineItem.amount.toString()));
+
+                    lineItemsArray.push(pkSummaryItem);
+                });
+
+                let paymentSummaryArray = NSArray.alloc().initWithArray(lineItemsArray);
+
+                request.paymentSummaryItems = paymentSummaryArray as NSArray<PKPaymentSummaryItem>;
+            }
+
+            request.countryCode = options.countryCode;
+            request.currencyCode = options.currencyCode;
+            request.merchantIdentifier = options.merchantIdentifier;
+
+
+            //Setting default to 3DS
+            request.merchantCapabilities = options.merchantCapabilities ? options.merchantCapabilities : PKMerchantCapability.Capability3DS;
+
+
+            //Setting default to all networks
+            let networksArray: NSArray<unknown>;
+            if (options.supportedNetworks) {
+                networksArray = NSArray.alloc().initWithArray(<any>options.supportedNetworks);
+            }
+            else {
+                networksArray = NSArray.alloc().initWithArray([
+                    SupportedAPCards.AmEx.toString(),
+                    SupportedAPCards.Discover.toString(),
+                    SupportedAPCards.MasterCard.toString(),
+                    SupportedAPCards.Visa.toString(),
+                ]);
+            }
+
+            request.supportedNetworks = networksArray as NSArray<string>;
+
+            let applePayController = PKPaymentAuthorizationViewController.alloc().initWithPaymentRequest(request);
 
             let canMakePayments: boolean = PKPaymentAuthorizationViewController.canMakePayments();
             let canMakePaymentsUsingNetworks: boolean = PKPaymentAuthorizationViewController.canMakePaymentsUsingNetworks(request.supportedNetworks);
@@ -411,11 +444,13 @@ export class Braintree extends BraintreeBase {
                 reject({ error: "canMakePaymentsUsingNetworksCapabilities returned false" })
             }
 
-
-            let applePayController = PKPaymentAuthorizationViewController.alloc().initWithPaymentRequest(request);
+            //init Delegate to control view and handle payment 
             let pkPaymentDelegateImpl: PKPaymentAuthorizationViewControllerDelegateImpl = new PKPaymentAuthorizationViewControllerDelegateImpl();
+            let applePayClient = BTApplePayClient.alloc().initWithAPIClient(this.client);
+            pkPaymentDelegateImpl.applePayClient = applePayClient;
+            pkPaymentDelegateImpl.braintree = this;
             pkPaymentDelegateImpl.callback = (nonce, error) => {
-                if (error) {
+                if (!nonce) {
                     reject({ error: error });
                 }
                 else {
@@ -423,21 +458,21 @@ export class Braintree extends BraintreeBase {
                 }
             }
 
-            let applePayClient = BTApplePayClient.alloc().initWithAPIClient(this.client);
-
-            pkPaymentDelegateImpl.applePayClient = applePayClient;
-            pkPaymentDelegateImpl.braintree = this;
-
             let controller = UIApplication.sharedApplication.keyWindow.rootViewController;
 
             try {
-                applePayController.delegate = pkPaymentDelegateImpl;
+                if (applePayController == null || applePayController == undefined) {
+                    reject("apple pay controller init failed");
+                }
+                else {
+                    applePayController.delegate = pkPaymentDelegateImpl;
+                    controller.presentViewControllerAnimatedCompletion(applePayController, true, (): void => {
+                    });
+                }
             } catch (error) {
                 reject({ error: error })
             }
 
-            controller.presentViewControllerAnimatedCompletion(applePayController, true, (): void => {
-            });
 
 
 
@@ -601,7 +636,9 @@ export class Braintree extends BraintreeBase {
         this.output.msg = 'Got Payment Nonce Value';
         this.output.deviceInfo = PPDataCollector.collectPayPalDeviceData();
 
-        this.dropInController.dismissViewControllerAnimatedCompletion(true, null);
+        if (this.dropInController) {
+            this.dropInController.dismissViewControllerAnimatedCompletion(true, null);
+        }
 
         setTimeout(() => {
             this.notify({
@@ -672,28 +709,20 @@ export class PKPaymentAuthorizationViewControllerDelegateImpl extends NSObject i
     callback: (nonce: BTApplePayCardNonce, error?) => void;
 
     paymentAuthorizationViewControllerDidAuthorizePaymentCompletion?(controller: PKPaymentAuthorizationViewController, payment: PKPayment, completion: (p1: PKPaymentAuthorizationStatus) => void): void {
-        console.log(`PaymentAuthorizationViewController Did Authorize Payment Completion executing`);
-
         this.applePayClient.tokenizeApplePayPaymentCompletion(payment, (nonce: BTApplePayCardNonce, error: NSError): void => {
             if (nonce) {
                 this.nonce = nonce;
                 completion(PKPaymentAuthorizationStatus.Success);
             } else {
                 completion(PKPaymentAuthorizationStatus.Failure);
-                /*
-                console.dir("#####################");
-                console.log(`error: ${error}`);
-                console.dir("#####################");
-                */
                 if (this.callback) {
-                    this.callback(undefined, error);
+                    this.callback(undefined, error ? error.description : "unknown error");
                 }
             }
         });
     }
 
     paymentAuthorizationViewControllerDidAuthorizePaymentHandler?(controller: PKPaymentAuthorizationViewController, payment: PKPayment, completion: (p1: PKPaymentAuthorizationResult) => void): void {
-        console.log(`PaymentAuthorizationViewController Did Authorize Payment Handler executing`);
         let result = PKPaymentAuthorizationResult.alloc().init();
 
         this.applePayClient.tokenizeApplePayPaymentCompletion(payment, (nonce: BTApplePayCardNonce, error: NSError): void => {
@@ -704,13 +733,8 @@ export class PKPaymentAuthorizationViewControllerDelegateImpl extends NSObject i
             } else {
                 result.status = PKPaymentAuthorizationStatus.Failure;
                 completion(result);
-                /*
-                console.dir("#####################");
-                console.log(`error: ${error}`);
-                console.dir("#####################");
-                */
                 if (this.callback) {
-                    this.callback(undefined, error);
+                    this.callback(undefined, error ? error.description : "unknown error");
                 }
             }
         });
@@ -726,7 +750,10 @@ export class PKPaymentAuthorizationViewControllerDelegateImpl extends NSObject i
             if (this.callback) {
                 this.callback(this.nonce);
             }
-            this.braintree.dropInController.dismissViewControllerAnimatedCompletion(true, null);
+            if (this.braintree.dropInController) {
+                this.braintree.dropInController.dismissViewControllerAnimatedCompletion(true, null);
+            }
+            controller.dismissModalViewControllerAnimated(true);
         }
     }
     paymentAuthorizationViewControllerDidSelectPaymentMethodCompletion?(controller: PKPaymentAuthorizationViewController, paymentMethod: PKPaymentMethod, completion: (p1: NSArray<PKPaymentSummaryItem>) => void): void {
