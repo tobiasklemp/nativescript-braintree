@@ -106,7 +106,7 @@ export interface BrainTreeOptions {
 
   merchantCapabilities?;
 
-  supportedNetworks?: SupportedAPCards;
+  supportedNetworks?: Array<string>;
 
   /** Apple Pay request -Likely to be removed in future update.-  */
   applePayPaymentRequest?: PKPaymentRequest;

@@ -405,29 +405,27 @@ export class Braintree extends BraintreeBase {
             request.currencyCode = options.currencyCode;
             request.merchantIdentifier = options.merchantIdentifier;
 
-
             //Setting default to 3DS
             request.merchantCapabilities = options.merchantCapabilities ? options.merchantCapabilities : PKMerchantCapability.Capability3DS;
 
 
             //Setting default to all networks
-            let networksArray: NSArray<unknown>;
+            let networksArray: NSArray<any>;
             if (options.supportedNetworks) {
                 networksArray = NSArray.alloc().initWithArray(<any>options.supportedNetworks);
             }
             else {
                 networksArray = NSArray.alloc().initWithArray([
-                    SupportedAPCards.AmEx.toString(),
-                    SupportedAPCards.Discover.toString(),
-                    SupportedAPCards.MasterCard.toString(),
-                    SupportedAPCards.Visa.toString(),
+                    "AmEx",
+                    "Discover",
+                    "MasterCard",
+                    "Visa",
                 ]);
             }
 
             request.supportedNetworks = networksArray as NSArray<string>;
 
             let applePayController = PKPaymentAuthorizationViewController.alloc().initWithPaymentRequest(request);
-
             let canMakePayments: boolean = PKPaymentAuthorizationViewController.canMakePayments();
             let canMakePaymentsUsingNetworks: boolean = PKPaymentAuthorizationViewController.canMakePaymentsUsingNetworks(request.supportedNetworks);
             let canMakePaymentsUsingNetworksCapabilities: boolean = PKPaymentAuthorizationViewController.canMakePaymentsUsingNetworksCapabilities(request.supportedNetworks, request.merchantCapabilities);
@@ -443,6 +441,8 @@ export class Braintree extends BraintreeBase {
             if (canMakePaymentsUsingNetworksCapabilities != true) {
                 reject({ error: "canMakePaymentsUsingNetworksCapabilities returned false" })
             }
+
+
 
             //init Delegate to control view and handle payment 
             let pkPaymentDelegateImpl: PKPaymentAuthorizationViewControllerDelegateImpl = new PKPaymentAuthorizationViewControllerDelegateImpl();
@@ -472,9 +472,6 @@ export class Braintree extends BraintreeBase {
             } catch (error) {
                 reject({ error: error })
             }
-
-
-
 
         })
     }

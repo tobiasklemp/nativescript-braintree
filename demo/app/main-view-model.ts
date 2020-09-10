@@ -171,6 +171,16 @@ export class HelloWorldModel extends Observable {
             let applePayLineItems = this.getApplePayLineItemsSummary();
             let applePayPaymentRequestObj = this.getApplePayPaymentRequestObj(applePayLineItems);
 
+            options.lineItems = [
+                {
+                    label: "asd",
+                    amount: "30"
+                },
+                {
+                    label: "das",
+                    amount: "30"
+                }
+            ]
             options.applePayPaymentRequest = applePayPaymentRequestObj;
             this.braintree.startApplePayPayment(options).then(res => {
                 console.log("success", res);
