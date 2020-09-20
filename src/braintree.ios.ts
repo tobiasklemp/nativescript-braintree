@@ -649,6 +649,7 @@ export class Braintree extends BraintreeBase {
 /**
  * Delegate for local payments
  */
+@NativeClass()
 export class LocalPaymentRequestDelegate extends NSObject implements BTLocalPaymentRequestDelegate {
     public static ObjCProtocols = [BTLocalPaymentRequestDelegate];
     constructor() {
@@ -665,6 +666,7 @@ export class LocalPaymentRequestDelegate extends NSObject implements BTLocalPaym
 /**
  * Delegate for CreditCard payments with 3DSecure
  */
+@NativeClass()
 export class ThreeDSecureRequestDelegate extends NSObject implements BTThreeDSecureRequestDelegate {
     public static ObjCProtocols = [BTThreeDSecureRequestDelegate];
 
@@ -680,6 +682,7 @@ export class ThreeDSecureRequestDelegate extends NSObject implements BTThreeDSec
 /**
  * presenting credit card form. 
  */
+@NativeClass()
 export class ViewControllerPresentingDelegate extends NSObject implements BTViewControllerPresentingDelegate {
     public static ObjCProtocols = [BTViewControllerPresentingDelegate];
     constructor() {
@@ -698,6 +701,7 @@ export class ViewControllerPresentingDelegate extends NSObject implements BTView
 /**
  * Apple Pay view controller
  */
+@NativeClass()
 export class PKPaymentAuthorizationViewControllerDelegateImpl extends NSObject implements PKPaymentAuthorizationViewControllerDelegate {
     public static ObjCProtocols = [PKPaymentAuthorizationViewControllerDelegate];
     applePayClient: BTApplePayClient;
